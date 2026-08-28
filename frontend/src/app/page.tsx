@@ -1,0 +1,241 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { Activity, AlertTriangle, BarChart3, Calendar, Clock, Map, Play, Settings, ShieldAlert, Zap } from 'lucide-react';
+import StatCard from '../components/StatCard';
+import TimelineView from '../components/TimelineView';
+import DataTable from '../components/DataTable';
+import EmergencyForm from '../components/EmergencyForm';
+import AnalyticsView from '../components/AnalyticsView';
+import DemoWizard from '../components/DemoWizard';
+
+export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [simData, setSimData] = useState<any>(null);
+  const [conflictData, setConflictData] = useState<any>(null);
+  const [priorityData, setPriorityData] = useState<any>(null);
+  
+  const [optHorizon, setOptHorizon] = useState("weekly");
+  const [optData, setOptData] = useState<any>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  
+  const [emgData, setEmgData] = useState<any>(null);
+
+  useEffect(() => {
+    // Initial fetch
+    Promise.all([
+      fetch("http://127.0.0.1:8000/api/simulation").then(r => r.json()),
+      fetch("http://127.0.0.1:8000/api/conflicts").then(r => r.json()),
+      fetch("http://127.0.0.1:8000/api/maintenance/priorities").then(r => r.json()),
+      fetch("http://127.0.0.1:8000/api/planning/weekly", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => r.json())
+    ]).then(([sim, conf, prio, opt]) => {
+      setSimData(sim);
+      setConflictData(conf);
+      setPriorityData(prio);
+      setOptData(opt);
+    }).catch(console.error);
+  }, []);
+
+  const runOptimizer = async (horizon: string) => {
+    setIsOptimizing(true);
+    setOptHorizon(horizon);
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/api/planning/${horizon}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      setOptData(data);
+    } catch (e) {
+      console.error(e);
+    }
+    setIsOptimizing(false);
+  };
+
+  if (!simData || !conflictData || !priorityData) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Loading backend connection... (Ensure FastAPI is running on port 8000)</div>;
+  }
+
+  const maintCols = [
+    { header: "ID", accessor: "request_id" },
+    { header: "Dept", accessor: "department" },
+    { header: "Section", accessor: "section" },
+    { header: "Priority", accessor: "priority_level", render: (v: string) => (
+      <span className={`px-2 py-1 rounded text-xs font-bold ${v === 'CRITICAL' ? 'bg-rose-500/20 text-rose-500' : v === 'HIGH' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'}`}>{v}</span>
+    )},
+    { header: "Score", accessor: "priority_score" },
+    { header: "Duration", accessor: "duration", render: (v: number) => `${v}m` }
+  ];
+
+  const conflictCols = [
+    { header: "Activity 1", accessor: "activity_1" },
+    { header: "Activity 2", accessor: "activity_2" },
+    { header: "Severity", accessor: "severity", render: (v: string) => (
+      <span className={`px-2 py-1 rounded text-xs font-bold ${v === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-orange-500 text-white'}`}>{v}</span>
+    )},
+    { header: "Reason", accessor: "reason" }
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col text-slate-300">
+      <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-10 shadow-md">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-500 p-2 rounded-lg text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+              <Zap size={24} />
+            </div>
+            <h1 className="text-2xl font-black text-white tracking-tight">RAIL<span className="text-emerald-400">OPTIMA</span> AI</h1>
+          </div>
+          
+          <nav className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            {[
+              { id: "overview", label: "Overview", icon: Activity },
+              { id: "analytics", label: "Analytics & KPIs", icon: BarChart3 },
+              { id: "maintenance", label: "Maintenance & Conflicts", icon: ShieldAlert },
+              { id: "optimizer", label: "AI Optimizer", icon: Calendar },
+              { id: "emergency", label: "Emergency Control", icon: AlertTriangle },
+              { id: "demo", label: "SIH Demo Mode", icon: Play }
+            ].map(tab => (
+              <button 
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-all ${activeTab === tab.id ? 'bg-emerald-500 text-white shadow-lg' : 'hover:bg-slate-700 text-slate-400'}`}
+              >
+                <tab.icon size={16} />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </header>
+
+      <main className="flex-1 max-w-7xl mx-auto w-full p-6 space-y-6">
+        
+        {activeTab === "overview" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-4 gap-4">
+              <StatCard title="Active Trains" value={simData?.trains?.length || 0} icon={Map} colorClass="text-blue-400" />
+              <StatCard title="Pending Maintenance" value={simData?.maintenance?.length || 0} icon={Settings} colorClass="text-orange-400" />
+              <StatCard title="Total Conflicts" value={conflictData?.summary_counts?.total || 0} icon={ShieldAlert} colorClass="text-rose-400" trend={`${conflictData?.summary_counts?.CRITICAL || 0} Critical`} />
+              <StatCard title="Block Utilization" value={optData?.summary_metrics?.utilized_block_hours ? `${optData.summary_metrics.utilized_block_hours}h` : '0h'} icon={Clock} colorClass="text-emerald-400" />
+            </div>
+            <TimelineView trains={simData?.trains || []} maintenance={simData?.maintenance || []} sections={simData?.sections || []} />
+          </div>
+        )}
+
+        {activeTab === "analytics" && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <AnalyticsView simData={simData} conflictData={conflictData} optData={optData} />
+          </div>
+        )}
+
+        {activeTab === "maintenance" && (
+          <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <DataTable title="Scored Maintenance Queue" columns={maintCols} data={priorityData || []} />
+            <DataTable title="Detected Schedule Conflicts" columns={conflictCols} data={conflictData?.conflicts || []} />
+          </div>
+        )}
+
+        {activeTab === "optimizer" && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-white mb-2">Multi-Horizon Block Optimizer</h2>
+                <p className="text-slate-400 text-sm">Our AI constraint engine will mathematically resolve overlaps and maximize block utilization.</p>
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => runOptimizer("weekly")}
+                  disabled={isOptimizing}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition-colors"
+                >
+                  Generate Weekly Plan
+                </button>
+                <button 
+                  onClick={() => runOptimizer("monthly")}
+                  disabled={isOptimizing}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded transition-colors"
+                >
+                  Generate Monthly Plan
+                </button>
+              </div>
+            </div>
+
+            {isOptimizing && <div className="text-center p-12 text-emerald-400 animate-pulse font-bold text-xl">Optimizer Engine Running...</div>}
+
+            {optData && !isOptimizing && (
+              <>
+                <div className="grid grid-cols-4 gap-4">
+                  <StatCard title="Scheduled Requests" value={optData?.summary_metrics?.scheduled_requests || 0} icon={Settings} colorClass="text-emerald-400" trend={`${optData?.summary_metrics?.unscheduled_requests || 0} Unscheduled`} trendUp />
+                  <StatCard title="Block Hours Utilized" value={optData?.summary_metrics?.utilized_block_hours || 0} icon={Clock} colorClass="text-emerald-400" trend={`Requested: ${optData?.summary_metrics?.block_hours || 0}h`} trendUp />
+                  <StatCard title="Critical Tasks Completed" value={optData?.summary_metrics?.critical_maintenance_completed || 0} icon={Activity} colorClass="text-blue-400" />
+                  <StatCard title="Conflicts Remaining" value={optData?.conflicts_after?.total || 0} icon={ShieldAlert} colorClass="text-emerald-400" trend={`Resolved ${optData?.summary_metrics?.conflicts_resolved || 0} overlaps`} trendUp />
+                </div>
+                <DataTable 
+                  title={`Optimized ${optHorizon.charAt(0).toUpperCase() + optHorizon.slice(1)} Schedule`} 
+                  columns={[...maintCols, { header: "Optimized Start", accessor: "start_time", render: (v: string) => <span className="text-emerald-400 font-mono">{v ? new Date(v).toLocaleString() : 'N/A'}</span> }]} 
+                  data={optData?.scheduled_requests || []} 
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === "emergency" && (
+          <div className="grid grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="col-span-4">
+              <EmergencyForm onReplan={setEmgData} sections={simData.sections} />
+            </div>
+            <div className="col-span-8">
+              {emgData ? (
+                <div className="space-y-6">
+                  <div className="bg-slate-800 p-6 rounded-xl border border-rose-500/30">
+                    <h3 className="text-rose-400 font-bold mb-4">Affected Operations</h3>
+                    <div className="flex gap-4">
+                      <div className="flex-1 bg-slate-900 p-4 rounded border border-slate-700">
+                        <p className="text-sm text-slate-400 mb-2">Trains Impacted</p>
+                        <p className="font-bold text-white">{(emgData?.affected_activities?.trains?.length || 0) > 0 ? emgData.affected_activities.trains.join(", ") : "None"}</p>
+                      </div>
+                      <div className="flex-1 bg-slate-900 p-4 rounded border border-slate-700">
+                        <p className="text-sm text-slate-400 mb-2">Maintenance Impacted</p>
+                        <p className="font-bold text-white">{(emgData?.affected_activities?.maintenance?.length || 0) > 0 ? emgData.affected_activities.maintenance.join(", ") : "None"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-slate-800 p-6 rounded-xl border border-emerald-500/30">
+                    <h3 className="text-emerald-400 font-bold mb-4">Cascading Re-allocations (Delta)</h3>
+                    {(emgData?.actions?.length || 0) === 0 ? (
+                      <p className="text-slate-400">No lower-priority blocks required moving.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {emgData.actions.map((act: any, i: number) => (
+                          <div key={i} className="bg-slate-900 p-4 rounded border border-emerald-500/20">
+                            <p className="font-bold text-emerald-400">{act.action}</p>
+                            <p className="text-sm text-slate-400 mt-1">{act.reason}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-800/50 p-12 rounded-xl border border-slate-700 border-dashed flex items-center justify-center h-full">
+                  <p className="text-slate-500">Submit an emergency block to visualize cascading schedule impacts.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "demo" && (
+          <div className="h-[800px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <DemoWizard />
+          </div>
+        )}
+        
+      </main>
+    </div>
+  );
+}

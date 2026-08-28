@@ -1,0 +1,27 @@
+[
+    {
+        "section_id": "SEC_1",
+        "name": "NDLS (New Delhi) to CNB (Kanpur)",
+        "distance_km": 207
+    },
+    {
+        "section_id": "SEC_2",
+        "name": "CNB (Kanpur) to PRYJ (Prayagraj)",
+        "distance_km": 162
+    },
+    {
+        "section_id": "SEC_3",
+        "name": "PRYJ (Prayagraj) to DDU (Pt. Deen Dayal Upadhyaya)",
+        "distance_km": 290
+    },
+    {
+        "section_id": "SEC_4",
+        "name": "DDU (Pt. Deen Dayal Upadhyaya) to PNBE (Patna)",
+        "distance_km": 275
+    },
+    {
+        "section_id": "SEC_5",
+        "name": "PNBE (Patna) to HWH (Howrah)",
+        "distance_km": 264
+    }
+]
