@@ -36,17 +36,26 @@ def get_free_windows(occupied_intervals, horizon_start, horizon_end):
         
     return free_windows
 
+def find_feasible_slot(duration_td, requested_start, free_windows):
+    for w_start, w_end in free_windows:
+        if w_end <= requested_start:
+            continue
+        possible_start = max(w_start, requested_start)
+        possible_end = possible_start + duration_td
+        if possible_end <= w_end:
+            return possible_start, possible_end
+    return None, None
+
 def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
     horizon_start = parse_time(horizon_start_str)
     horizon_end = parse_time(horizon_end_str)
     
-    # 1. Pre-optimization conflicts
     before_conflicts = detect_conflicts(trains, maintenance)["summary_counts"]
-    
-    # 2. Priority Scoring
     scored_maintenance = calculate_priority(maintenance)
     
-    # 3. Build initial occupied intervals per section (from trains)
+    # Sort by priority score (descending) so critical goes first
+    scored_maintenance.sort(key=lambda x: x.get("priority_score", 0), reverse=True)
+    
     section_occupancy = {}
     for t in trains:
         sec = t["section"]
@@ -57,48 +66,46 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
     scheduled_requests = []
     unscheduled_requests = []
     
-    # 4. Greedy Assignment
     for req in scored_maintenance:
         sec = req["section"]
         duration_mins = req["duration"]
         duration_td = timedelta(minutes=duration_mins)
+        requested_start = parse_time(req["start_time"])
         
-        # Get free windows for this section
+        req["original_start"] = req["start_time"]
+        req["original_end"] = req["end_time"]
+        
         occupied = section_occupancy.get(sec, [])
         free_windows = get_free_windows(occupied, horizon_start, horizon_end)
         
-        assigned = False
-        for w_start, w_end in free_windows:
-            if (w_end - w_start) >= duration_td:
-                # Assign to earliest feasible time in this window
-                new_start = w_start
-                new_end = w_start + duration_td
-                
-                req["start_time"] = new_start.isoformat()
-                req["end_time"] = new_end.isoformat()
-                req["status"] = "Scheduled"
-                
-                scheduled_requests.append(req)
-                
-                # Update occupancy
-                if sec not in section_occupancy:
-                    section_occupancy[sec] = []
-                section_occupancy[sec].append((new_start, new_end))
-                assigned = True
-                break
-                
-        if not assigned:
+        new_start, new_end = find_feasible_slot(duration_td, requested_start, free_windows)
+        
+        if new_start and new_end:
+            req["start_time"] = new_start.isoformat()
+            req["end_time"] = new_end.isoformat()
+            req["status"] = "Scheduled"
+            
+            shift_td = new_start - requested_start
+            shift_mins = int(shift_td.total_seconds() / 60)
+            req["shifted"] = shift_mins > 0
+            req["shift_duration"] = shift_mins
+            
+            scheduled_requests.append(req)
+            
+            if sec not in section_occupancy:
+                section_occupancy[sec] = []
+            section_occupancy[sec].append((new_start, new_end))
+        else:
             req["status"] = "Unscheduled"
-            req["reason"] = f"No continuous time window of {duration_mins} mins available on {sec}."
+            req["shifted"] = False
+            req["shift_duration"] = 0
+            req["reason"] = f"No feasible {duration_mins}m window available on {sec} after requested start."
             unscheduled_requests.append(req)
             
-    # 5. Post-optimization conflicts
     after_conflicts = detect_conflicts(trains, scheduled_requests)["summary_counts"]
     
-    # 6. Utilization Stats
     total_hours_requested = sum(req["duration"] for req in scored_maintenance) / 60.0
     total_hours_scheduled = sum(req["duration"] for req in scheduled_requests) / 60.0
-    total_requests = len(scored_maintenance)
     critical_completed = len([req for req in scheduled_requests if req.get("priority_level") == "CRITICAL"])
     
     return {
@@ -107,7 +114,7 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
         "conflicts_before": before_conflicts,
         "conflicts_after": after_conflicts,
         "summary_metrics": {
-            "total_maintenance_requests": total_requests,
+            "total_maintenance_requests": len(scored_maintenance),
             "scheduled_requests": len(scheduled_requests),
             "unscheduled_requests": len(unscheduled_requests),
             "block_hours": round(total_hours_requested, 2),

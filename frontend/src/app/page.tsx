@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, BarChart3, Calendar, Clock, Map, Play, Settings, ShieldAlert, Zap } from 'lucide-react';
+import { getApiUrl } from '../lib/api';
 import StatCard from '../components/StatCard';
 import TimelineView from '../components/TimelineView';
 import DataTable from '../components/DataTable';
@@ -21,40 +22,61 @@ export default function Dashboard() {
   
   const [emgData, setEmgData] = useState<any>(null);
 
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+
   useEffect(() => {
     // Initial fetch
     Promise.all([
-      fetch("http://127.0.0.1:8000/api/simulation").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/api/conflicts").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/api/maintenance/priorities").then(r => r.json()),
-      fetch("http://127.0.0.1:8000/api/planning/weekly", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => r.json())
+      fetch(getApiUrl("/api/simulation")).then(r => { if (!r.ok) throw new Error("Failed to load simulation"); return r.json(); }),
+      fetch(getApiUrl("/api/conflicts")).then(r => { if (!r.ok) throw new Error("Failed to load conflicts"); return r.json(); }),
+      fetch(getApiUrl("/api/maintenance/priorities")).then(r => { if (!r.ok) throw new Error("Failed to load priorities"); return r.json(); }),
+      fetch(getApiUrl("/api/planning/weekly"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => { if (!r.ok) throw new Error("Failed to run weekly plan"); return r.json(); })
     ]).then(([sim, conf, prio, opt]) => {
       setSimData(sim);
       setConflictData(conf);
       setPriorityData(prio);
       setOptData(opt);
-    }).catch(console.error);
+      setConnectionError(null);
+    }).catch(err => {
+      console.error(err);
+      setConnectionError("Failed to connect to the RailOptima backend API. Please ensure the backend server is running.");
+    });
   }, []);
 
   const runOptimizer = async (horizon: string) => {
     setIsOptimizing(true);
     setOptHorizon(horizon);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/planning/${horizon}`, {
+      const res = await fetch(getApiUrl(`/api/planning/${horizon}`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({})
       });
+      if (!res.ok) throw new Error(`API Error: ${res.status}`);
       const data = await res.json();
       setOptData(data);
     } catch (e) {
       console.error(e);
+      alert("Failed to run optimizer. Check backend connection.");
     }
     setIsOptimizing(false);
   };
 
+  if (connectionError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-6">
+        <div className="bg-rose-950/30 border border-rose-500/50 p-8 rounded-xl max-w-lg text-center shadow-[0_0_30px_rgba(225,29,72,0.15)]">
+          <ShieldAlert className="mx-auto mb-4 text-rose-500" size={48} />
+          <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
+          <p className="text-slate-400">{connectionError}</p>
+          <p className="text-slate-500 text-sm mt-4">API URL configured as: {getApiUrl("")}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!simData || !conflictData || !priorityData) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Loading backend connection... (Ensure FastAPI is running on port 8000)</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-emerald-400 font-bold animate-pulse">Initializing RailOptima AI Systems...</div>;
   }
 
   const maintCols = [

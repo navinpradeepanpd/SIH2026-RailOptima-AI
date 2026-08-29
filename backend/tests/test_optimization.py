@@ -35,9 +35,8 @@ def test_optimization_resolves_conflict():
     scheduled_mnt = result["scheduled_requests"][0]
     assert scheduled_mnt["status"] == "Scheduled"
     
-    # Train occupies 10 to 12. Earliest free window is 00:00 to 10:00. 
-    # Our greedy algorithm picks earliest window -> starts at 00:00
-    assert scheduled_mnt["start_time"] == "2026-09-01T00:00:00"
+    # Train occupies 10 to 12. Earliest free window starting at or after 10:00 is 12:00.
+    assert scheduled_mnt["start_time"] == "2026-09-01T12:00:00"
 
 def test_unscheduled_due_to_no_window():
     # Train occupies entire 24h horizon
@@ -67,4 +66,5 @@ def test_unscheduled_due_to_no_window():
     assert len(result["scheduled_requests"]) == 0
     assert len(result["unscheduled_requests"]) == 1
     assert result["unscheduled_requests"][0]["status"] == "Unscheduled"
-    assert "No continuous time window" in result["unscheduled_requests"][0]["reason"]
+    assert "No feasible" in result["unscheduled_requests"][0]["reason"]
+

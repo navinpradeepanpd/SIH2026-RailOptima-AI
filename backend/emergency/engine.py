@@ -49,8 +49,19 @@ def replan_schedule(emergency_request, trains, maintenance, horizon_start_str, h
     disrupted_trains = copy.deepcopy(trains)
     disrupted_trains.append(mock_train)
     
+    # To "move only activities that actually need replanning", we set their requested start 
+    # to the time they were assigned in the baseline schedule.
+    # This prevents unaffected activities from randomly shifting to earlier newly-freed slots.
+    replan_maintenance = copy.deepcopy(maintenance)
+    baseline_dict = {req["request_id"]: req for req in before_schedule}
+    
+    for req in replan_maintenance:
+        if req["request_id"] in baseline_dict:
+            # They request the slot they had in baseline
+            req["start_time"] = baseline_dict[req["request_id"]]["start_time"]
+    
     # Run optimization again
-    after_result = run_optimization(disrupted_trains, maintenance, horizon_start_str, horizon_end_str)
+    after_result = run_optimization(disrupted_trains, replan_maintenance, horizon_start_str, horizon_end_str)
     after_schedule = after_result["scheduled_requests"]
     
     # Add emergency block to the after schedule manually so it's included

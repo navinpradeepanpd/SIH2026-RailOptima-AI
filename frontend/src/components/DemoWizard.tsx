@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, RotateCcw, Play } from 'lucide-react';
+import { getApiUrl } from '../lib/api';
 import TimelineView from './TimelineView';
 import DataTable from './DataTable';
 import AnalyticsView from './AnalyticsView';
@@ -32,16 +33,16 @@ export default function DemoWizard() {
     try {
       if (nextStep === 1 || nextStep === 2) {
         if (!simData) {
-          const res = await fetch("http://127.0.0.1:8000/api/simulation");
+          const res = await fetch(getApiUrl("/api/simulation"));
           setSimData(await res.json());
         }
       }
       if (nextStep === 3) {
-        const res = await fetch("http://127.0.0.1:8000/api/conflicts");
+        const res = await fetch(getApiUrl("/api/conflicts"));
         setConflictData(await res.json());
       }
       if (nextStep === 4) {
-        const res = await fetch("http://127.0.0.1:8000/api/planning/weekly", {
+        const res = await fetch(getApiUrl("/api/planning/weekly"), {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({})
         });
         setOptData(await res.json());
@@ -54,7 +55,7 @@ export default function DemoWizard() {
               start_time: "2026-09-01T10:00:00", duration: 120, severity: "Critical", urgency: "Emergency", safety_critical: true
             }
           };
-          const res = await fetch("http://127.0.0.1:8000/api/emergency/replan", {
+          const res = await fetch(getApiUrl("/api/emergency/replan"), {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
           });
           setEmgData(await res.json());

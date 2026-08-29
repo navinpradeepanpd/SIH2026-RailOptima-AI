@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getApiUrl } from '../lib/api';
 
 export default function EmergencyForm({ onReplan, sections }: { onReplan: (data: any) => void, sections: any[] }) {
   const [formData, setFormData] = useState({
@@ -22,7 +23,7 @@ export default function EmergencyForm({ onReplan, sections }: { onReplan: (data:
     };
     
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/emergency/replan", {
+      const res = await fetch(getApiUrl("/api/emergency/replan"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
