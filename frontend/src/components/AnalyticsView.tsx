@@ -72,9 +72,13 @@ export default function AnalyticsView({ simData, conflictData, optData }: Analyt
           <SimpleBar label="Utilized Block Hours" value={beforeUtilized} max={beforeBlockHours} color="bg-slate-600" />
           
           <div className="mt-6 pt-4 border-t border-slate-700">
-             <div className="flex justify-between items-center bg-slate-900 p-3 rounded">
+             <div className="flex justify-between items-center bg-slate-900 p-3 rounded mb-2">
                <span className="text-slate-400 text-sm">Unused Requested Hours</span>
                <span className="text-orange-400 font-bold">{beforeBlockHours}h</span>
+             </div>
+             <div className="flex justify-between items-center bg-slate-900 p-3 rounded">
+               <span className="text-slate-400 text-sm">Utilization Rate</span>
+               <span className="text-slate-500 font-bold">Uncoordinated</span>
              </div>
           </div>
         </div>
@@ -92,10 +96,18 @@ export default function AnalyticsView({ simData, conflictData, optData }: Analyt
           <SimpleBar label="Remaining Conflicts" value={afterConflicts} max={Math.max(beforeConflicts, 10)} color="bg-rose-500" />
           <SimpleBar label="Utilized Block Hours" value={afterUtilized} max={beforeBlockHours} color="bg-emerald-400" />
           
-          <div className="mt-6 pt-4 border-t border-slate-700">
+          <div className="mt-6 pt-4 border-t border-slate-700 space-y-2">
              <div className="flex justify-between items-center bg-emerald-900/30 p-3 rounded border border-emerald-500/20">
                <span className="text-emerald-200 text-sm flex items-center gap-2"><CheckCircle size={16}/> Critical Maintenance Completed</span>
                <span className="text-emerald-400 font-bold">{metrics?.critical_maintenance_completed || 0}</span>
+             </div>
+             <div className="flex justify-between items-center bg-blue-900/30 p-3 rounded border border-blue-500/20">
+               <span className="text-blue-200 text-sm">Avg Shift Duration</span>
+               <span className="text-blue-400 font-bold">{metrics?.avg_shift_duration_mins || 0}m</span>
+             </div>
+             <div className="flex justify-between items-center bg-emerald-900/30 p-3 rounded border border-emerald-500/20">
+               <span className="text-emerald-200 text-sm">Block Utilization Rate</span>
+               <span className="text-emerald-400 font-bold">{metrics?.utilization_percentage || 0}%</span>
              </div>
           </div>
         </div>

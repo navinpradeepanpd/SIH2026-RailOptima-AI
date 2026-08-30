@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   
   const [emgData, setEmgData] = useState<any>(null);
+  const [dataMode, setDataMode] = useState<any>(null);
 
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
@@ -30,12 +31,14 @@ export default function Dashboard() {
       fetch(getApiUrl("/api/simulation")).then(r => { if (!r.ok) throw new Error("Failed to load simulation"); return r.json(); }),
       fetch(getApiUrl("/api/conflicts")).then(r => { if (!r.ok) throw new Error("Failed to load conflicts"); return r.json(); }),
       fetch(getApiUrl("/api/maintenance/priorities")).then(r => { if (!r.ok) throw new Error("Failed to load priorities"); return r.json(); }),
-      fetch(getApiUrl("/api/planning/weekly"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => { if (!r.ok) throw new Error("Failed to run weekly plan"); return r.json(); })
-    ]).then(([sim, conf, prio, opt]) => {
+      fetch(getApiUrl("/api/planning/weekly"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => { if (!r.ok) throw new Error("Failed to run weekly plan"); return r.json(); }),
+      fetch(getApiUrl("/api/data-mode")).then(r => { if (!r.ok) throw new Error("Failed to load data mode"); return r.json(); })
+    ]).then(([sim, conf, prio, opt, mode]) => {
       setSimData(sim);
       setConflictData(conf);
       setPriorityData(prio);
       setOptData(opt);
+      setDataMode(mode);
       setConnectionError(null);
     }).catch(err => {
       console.error(err);
@@ -107,7 +110,14 @@ export default function Dashboard() {
             <div className="bg-emerald-500 p-2 rounded-lg text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]">
               <Zap size={24} />
             </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">RAIL<span className="text-emerald-400">OPTIMA</span> AI</h1>
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-black text-white tracking-tight leading-none">RAIL<span className="text-emerald-400">OPTIMA</span> AI</h1>
+              {dataMode?.mode === "simulation" && (
+                <span className="text-[10px] uppercase font-bold text-orange-400 tracking-wider mt-1 flex items-center gap-1">
+                  <Activity size={10} /> SIMULATION MODE — Synthetic Railway Operations Data
+                </span>
+              )}
+            </div>
           </div>
           
           <nav className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">

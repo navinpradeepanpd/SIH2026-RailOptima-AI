@@ -21,12 +21,12 @@ def generate_data():
 
     # 2. Train Movements (50+ trains)
     train_types = [
-        {"type": "Vande Bharat Express", "priority": 1, "speed_kmh": 130},
-        {"type": "Rajdhani Express", "priority": 2, "speed_kmh": 120},
-        {"type": "Superfast Express", "priority": 3, "speed_kmh": 90},
-        {"type": "Passenger", "priority": 4, "speed_kmh": 60},
-        {"type": "Freight", "priority": 5, "speed_kmh": 50},
-        {"type": "Dedicated Freight", "priority": 4, "speed_kmh": 75}
+        {"type": "Vande Bharat Express", "priority": 1, "speed_kmh": 130, "category": "Passenger"},
+        {"type": "Rajdhani Express", "priority": 2, "speed_kmh": 120, "category": "Passenger"},
+        {"type": "Superfast Express", "priority": 3, "speed_kmh": 90, "category": "Passenger"},
+        {"type": "Passenger", "priority": 4, "speed_kmh": 60, "category": "Passenger"},
+        {"type": "Freight", "priority": 5, "speed_kmh": 50, "category": "Freight"},
+        {"type": "Dedicated Freight", "priority": 4, "speed_kmh": 75, "category": "Freight"}
     ]
 
     trains = []
@@ -44,14 +44,19 @@ def generate_data():
         
         # Determine origin and destination from section name
         parts = section["name"].split(" to ")
-        origin = parts[0] if random.choice([True, False]) else parts[1]
-        destination = parts[1] if origin == parts[0] else parts[0]
+        is_up = random.choice([True, False])
+        origin = parts[0] if is_up else parts[1]
+        destination = parts[1] if is_up else parts[0]
+        direction = "UP" if is_up else "DOWN"
         
         trains.append({
             "train_id": f"TRN_{10000 + i}",
+            "train_name": f"{origin.split(' ')[0]}-{destination.split(' ')[0]} {t_type['type']}",
             "train_type": t_type["type"],
+            "category": t_type["category"],
             "origin": origin,
             "destination": destination,
+            "direction": direction,
             "section": section["section_id"],
             "planned_start": planned_start.isoformat(),
             "planned_end": planned_end.isoformat(),
@@ -80,11 +85,13 @@ def generate_data():
         severity = random.choice(["Low", "Medium", "High", "Critical"])
         urgency = random.choice(["Routine", "Urgent", "Emergency"])
         safety_critical = True if severity in ["High", "Critical"] else False
+        maintenance_type = "Corrective" if urgency == "Emergency" else "Preventive"
         
         maintenance.append({
             "request_id": f"MNT_{5000 + i}",
             "department": dept_info["dept"],
             "asset_type": random.choice(dept_info["assets"]),
+            "maintenance_type": maintenance_type,
             "section": section["section_id"],
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),

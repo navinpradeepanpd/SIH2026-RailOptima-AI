@@ -1,51 +1,52 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
+import os
+
+SAFETY_BUFFER_MINUTES = int(os.getenv("SAFETY_BUFFER_MINUTES", "30"))
 
 def parse_time(time_str):
     return datetime.fromisoformat(time_str)
 
 def get_severity(act1, act2):
-    # Determine type of activities
     t1_is_train = "train_id" in act1
     t2_is_train = "train_id" in act2
     
-    # Extract properties
     is_safety_critical_1 = act1.get("safety_critical", False) if not t1_is_train else False
     is_safety_critical_2 = act2.get("safety_critical", False) if not t2_is_train else False
     
     priority_1 = act1.get("priority", 99) if t1_is_train else 99
     priority_2 = act2.get("priority", 99) if t2_is_train else 99
     
-    is_high_priority_train = (priority_1 <= 2) or (priority_2 <= 2)
-    is_passenger_train = (priority_1 <= 4) or (priority_2 <= 4)
+    category_1 = act1.get("category", "") if t1_is_train else ""
+    category_2 = act2.get("category", "") if t2_is_train else ""
     
-    # CRITICAL: safety-critical maintenance OR high priority passenger train involved
-    if is_safety_critical_1 or is_safety_critical_2 or is_high_priority_train:
+    # Infer passenger if category missing but priority <= 4
+    has_passenger_train = category_1 == "Passenger" or category_2 == "Passenger" or (t1_is_train and priority_1 <= 4) or (t2_is_train and priority_2 <= 4)
+    has_high_priority_train = priority_1 <= 2 or priority_2 <= 2
+    
+    if is_safety_critical_1 or is_safety_critical_2 or has_high_priority_train:
         return "CRITICAL"
         
-    # HIGH: two maintenances overlapping, OR regular passenger train vs maintenance
-    if (not t1_is_train and not t2_is_train) or is_passenger_train:
+    if has_passenger_train or (not t1_is_train and not t2_is_train):
         return "HIGH"
         
-    # MEDIUM: freight train vs maintenance
     if t1_is_train or t2_is_train:
         return "MEDIUM"
         
-    # LOW: fallback
     return "LOW"
 
 def get_reason(act1, act2):
-    t1_type = "Train" if "train_id" in act1 else "Maintenance"
-    t2_type = "Train" if "train_id" in act2 else "Maintenance"
+    t1_is_train = "train_id" in act1
+    t2_is_train = "train_id" in act2
     
-    if t1_type == "Train" and t2_type == "Maintenance":
-        return f"Train {act1['train_id']} ({act1['train_type']}) overlaps with {act2['department']} maintenance block."
-    elif t1_type == "Maintenance" and t2_type == "Train":
-        return f"Train {act2['train_id']} ({act2['train_type']}) overlaps with {act1['department']} maintenance block."
-    elif t1_type == "Train" and t2_type == "Train":
-        return f"Train {act1['train_id']} overlaps with Train {act2['train_id']}."
+    if t1_is_train and not t2_is_train:
+        return f"Train {act1.get('train_name', act1.get('train_id'))} ({act1.get('category', 'Unknown')}) overlaps with {act2.get('department', 'Maintenance')} block."
+    elif not t1_is_train and t2_is_train:
+        return f"Train {act2.get('train_name', act2.get('train_id'))} ({act2.get('category', 'Unknown')}) overlaps with {act1.get('department', 'Maintenance')} block."
+    elif t1_is_train and t2_is_train:
+        return f"Train {act1.get('train_name', act1.get('train_id'))} overlaps with Train {act2.get('train_name', act2.get('train_id'))}."
     else:
-        return f"Maintenance block ({act1['department']}) overlaps with Maintenance block ({act2['department']})."
+        return f"Maintenance ({act1.get('department', 'Unknown')}) overlaps with Maintenance ({act2.get('department', 'Unknown')})."
 
 def detect_conflicts(trains, maintenance):
     conflicts = []
@@ -57,16 +58,16 @@ def detect_conflicts(trains, maintenance):
         "LOW": 0
     }
     
-    # Combine all activities into a list with uniform start/end/section
     activities = []
     
     for t in trains:
+        # Add safety buffer to train occupancy
         activities.append({
             "type": "train",
             "data": t,
             "section": t["section"],
-            "start": parse_time(t["planned_start"]),
-            "end": parse_time(t["planned_end"])
+            "start": parse_time(t["planned_start"]) - timedelta(minutes=SAFETY_BUFFER_MINUTES),
+            "end": parse_time(t["planned_end"]) + timedelta(minutes=SAFETY_BUFFER_MINUTES)
         })
         
     for m in maintenance:
@@ -74,24 +75,24 @@ def detect_conflicts(trains, maintenance):
             "type": "maintenance",
             "data": m,
             "section": m["section"],
-            "start": parse_time(m["start_time"]),
-            "end": parse_time(m["end_time"])
+            "start": parse_time(m.get("start_time", m.get("original_start"))),
+            "end": parse_time(m.get("end_time", m.get("original_end")))
         })
         
-    # Compare every pair (O(N^2) is fine for small simulation data)
     n = len(activities)
     for i in range(n):
         for j in range(i + 1, n):
             a1 = activities[i]
             a2 = activities[j]
             
-            # Check section match
             if a1["section"] != a2["section"]:
                 continue
                 
-            # Check time overlap (exclusive boundaries)
+            # If both are trains, skip conflict detection for now (focus on train vs maintenance and maint vs maint)
+            if a1["type"] == "train" and a2["type"] == "train":
+                continue
+                
             if a1["start"] < a2["end"] and a1["end"] > a2["start"]:
-                # Conflict detected
                 overlap_start = max(a1["start"], a2["start"])
                 overlap_end = min(a1["end"], a2["end"])
                 
@@ -100,6 +101,16 @@ def detect_conflicts(trains, maintenance):
                 
                 severity = get_severity(act1_data, act2_data)
                 reason = get_reason(act1_data, act2_data)
+                
+                # Check if it's purely a buffer overlap (meaning original times don't overlap, only buffer does)
+                # To do this, check original times.
+                orig_a1_start = parse_time(act1_data.get("planned_start") or act1_data.get("start_time", act1_data.get("original_start")))
+                orig_a1_end = parse_time(act1_data.get("planned_end") or act1_data.get("end_time", act1_data.get("original_end")))
+                orig_a2_start = parse_time(act2_data.get("planned_start") or act2_data.get("start_time", act2_data.get("original_start")))
+                orig_a2_end = parse_time(act2_data.get("planned_end") or act2_data.get("end_time", act2_data.get("original_end")))
+                
+                if orig_a1_start >= orig_a2_end or orig_a1_end <= orig_a2_start:
+                    reason += f" (Violates {SAFETY_BUFFER_MINUTES}m safety buffer)"
                 
                 id_1 = act1_data.get("train_id") or act1_data.get("request_id")
                 id_2 = act2_data.get("train_id") or act2_data.get("request_id")
