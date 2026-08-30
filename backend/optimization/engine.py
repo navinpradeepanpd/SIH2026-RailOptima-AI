@@ -16,7 +16,8 @@ def get_free_windows(occupied_intervals, horizon_start, horizon_end):
     merged = []
     current_start, current_end = occupied_intervals[0][0], occupied_intervals[0][1]
     
-    for start, end, _, _ in occupied_intervals[1:]:
+    for occ in occupied_intervals[1:]:
+        start, end = occ[0], occ[1]
         if start <= current_end:
             current_end = max(current_end, end)
         else:
@@ -50,7 +51,8 @@ def find_feasible_slot(duration_td, requested_start, free_windows):
 def get_blocking_activities(requested_start, duration_td, occupied_intervals):
     req_end = requested_start + duration_td
     blockers = []
-    for start, end, act_id, act_type in occupied_intervals:
+    for occ in occupied_intervals:
+        start, end, act_id, act_type = occ[:4]
         if start < req_end and end > requested_start:
             blockers.append({"id": act_id, "type": act_type, "start": start.isoformat(), "end": end.isoformat()})
     return blockers
@@ -71,7 +73,7 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
             section_occupancy[sec] = []
         train_start = parse_time(t["planned_start"]) - timedelta(minutes=SAFETY_BUFFER_MINUTES)
         train_end = parse_time(t["planned_end"]) + timedelta(minutes=SAFETY_BUFFER_MINUTES)
-        section_occupancy[sec].append((train_start, train_end, t.get("train_id"), "Train"))
+        section_occupancy[sec].append((train_start, train_end, t.get("train_id"), "Train", t.get("track")))
         
     scheduled_requests = []
     unscheduled_requests = []
@@ -86,8 +88,11 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
         
         req["original_start"] = req.get("start_time", req.get("original_start"))
         req["original_end"] = req.get("end_time", req.get("original_end"))
+        req_track = req.get("track")
         
-        occupied = section_occupancy.get(sec, [])
+        all_occupied = section_occupancy.get(sec, [])
+        occupied = [occ for occ in all_occupied if not req_track or not occ[4] or req_track == occ[4]]
+        
         free_windows = get_free_windows(occupied, horizon_start, horizon_end)
         
         new_start, new_end = find_feasible_slot(duration_td, requested_start, free_windows)
@@ -114,6 +119,7 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
                     "constraint": f"Maintenance cannot overlap train occupancy (Buffer: {SAFETY_BUFFER_MINUTES}m) or higher priority blocks.",
                     "conflict_ids": conflict_ids,
                     "affected_section": sec,
+                    "track": req_track,
                     "original_start": req["original_start"],
                     "original_end": req["original_end"],
                     "optimized_start": req["start_time"],
@@ -129,7 +135,7 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
             
             if sec not in section_occupancy:
                 section_occupancy[sec] = []
-            section_occupancy[sec].append((new_start, new_end, req.get("request_id"), "Maintenance"))
+            section_occupancy[sec].append((new_start, new_end, req.get("request_id"), "Maintenance", req_track))
         else:
             req["status"] = "Unscheduled"
             req["shifted"] = False
@@ -141,6 +147,7 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
                 "constraint": "Cannot interrupt scheduled trains or safety-critical blocks.",
                 "conflict_ids": conflict_ids,
                 "affected_section": sec,
+                "track": req_track,
                 "original_start": req["original_start"],
                 "original_end": req["original_end"],
                 "optimized_start": None,

@@ -42,6 +42,7 @@ def replan_schedule(emergency_request, trains, maintenance, horizon_start_str, h
         "train_id": emergency_request["request_id"],
         "train_type": "Emergency Block",
         "section": emergency_request["section"],
+        "track": emergency_request.get("track"),
         "planned_start": emergency_request["start_time"],
         "planned_end": emergency_request["end_time"]
     }

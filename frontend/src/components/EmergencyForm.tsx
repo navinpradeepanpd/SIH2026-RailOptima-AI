@@ -10,7 +10,8 @@ export default function EmergencyForm({ onReplan, sections }: { onReplan: (data:
     duration: 120,
     severity: "Critical",
     urgency: "Emergency",
-    safety_critical: true
+    safety_critical: true,
+    track: ""
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,6 +53,20 @@ export default function EmergencyForm({ onReplan, sections }: { onReplan: (data:
             onChange={e => setFormData({...formData, section: e.target.value})}
           >
             {sections.map(s => <option key={s.section_id} value={s.section_id}>{s.name}</option>)}
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-slate-400 text-sm mb-1">Track</label>
+          <select 
+            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none focus:border-rose-500"
+            value={formData.track}
+            onChange={e => setFormData({...formData, track: e.target.value})}
+          >
+            <option value="">Any / Unknown</option>
+            {sections.find(s => s.section_id === formData.section)?.tracks?.map((t: string) => (
+                <option key={t} value={t}>{t}</option>
+            ))}
           </select>
         </div>
         

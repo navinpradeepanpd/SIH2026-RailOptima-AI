@@ -95,12 +95,32 @@ export default function Dashboard() {
   ];
 
   const conflictCols = [
-    { header: "Activity 1", accessor: "activity_1" },
-    { header: "Activity 2", accessor: "activity_2" },
+    { header: "Conflict", accessor: "activity_1", render: (v: any, row: any) => (
+      <div>
+        <p className="font-bold text-slate-200">{row.activity_1} vs {row.activity_2}</p>
+        {row.activity_1_type && <p className="text-xs text-slate-400">{row.activity_1_type} vs {row.activity_2_type}</p>}
+      </div>
+    )},
+    { header: "Location", accessor: "section", render: (v: any, row: any) => (
+      <div>
+        <p className="text-slate-300 font-mono">{row.section}</p>
+        {row.track && row.track !== "Unknown" && <p className="text-xs text-slate-400 font-mono">{row.track}</p>}
+      </div>
+    )},
+    { header: "Time Overlap", accessor: "overlap_start", render: (v: any, row: any) => {
+      if (!row.overlap_start) return <span className="text-slate-500">N/A</span>;
+      return (
+      <div>
+        <p className="text-slate-300 text-sm">
+          {new Date(row.overlap_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} → {new Date(row.overlap_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </p>
+        <p className="text-xs text-orange-400 font-bold">{row.overlap_duration_minutes} mins</p>
+      </div>
+    )}},
     { header: "Severity", accessor: "severity", render: (v: string) => (
       <span className={`px-2 py-1 rounded text-xs font-bold ${v === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-orange-500 text-white'}`}>{v}</span>
     )},
-    { header: "Reason", accessor: "reason" }
+    { header: "Reason", accessor: "reason", render: (v: string) => <span className="text-xs text-slate-300">{v}</span> }
   ];
 
   return (

@@ -76,6 +76,10 @@ export default function AnalyticsView({ simData, conflictData, optData }: Analyt
                <span className="text-slate-400 text-sm">Unused Requested Hours</span>
                <span className="text-orange-400 font-bold">{beforeBlockHours}h</span>
              </div>
+             <div className="flex justify-between items-center bg-slate-900 p-3 rounded mb-2">
+               <span className="text-slate-400 text-sm">Total Overlap Time</span>
+               <span className="text-rose-400 font-bold">{conflictData?.summary_counts?.total_overlap_duration_minutes || 0}m</span>
+             </div>
              <div className="flex justify-between items-center bg-slate-900 p-3 rounded">
                <span className="text-slate-400 text-sm">Utilization Rate</span>
                <span className="text-slate-500 font-bold">Uncoordinated</span>
@@ -105,9 +109,13 @@ export default function AnalyticsView({ simData, conflictData, optData }: Analyt
                <span className="text-blue-200 text-sm">Avg Shift Duration</span>
                <span className="text-blue-400 font-bold">{metrics?.avg_shift_duration_mins || 0}m</span>
              </div>
-             <div className="flex justify-between items-center bg-emerald-900/30 p-3 rounded border border-emerald-500/20">
+             <div className="flex justify-between items-center bg-emerald-900/30 p-3 rounded border border-emerald-500/20 mb-2">
                <span className="text-emerald-200 text-sm">Block Utilization Rate</span>
                <span className="text-emerald-400 font-bold">{metrics?.utilization_percentage || 0}%</span>
+             </div>
+             <div className="flex justify-between items-center bg-emerald-900/30 p-3 rounded border border-emerald-500/20">
+               <span className="text-emerald-200 text-sm">Remaining Overlap Time</span>
+               <span className="text-emerald-400 font-bold">{optData?.conflicts_after?.total_overlap_duration_minutes || 0}m</span>
              </div>
           </div>
         </div>

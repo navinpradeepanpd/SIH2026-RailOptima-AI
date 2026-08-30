@@ -13,10 +13,12 @@ def generate_data():
     stations = ["NDLS (New Delhi)", "CNB (Kanpur)", "PRYJ (Prayagraj)", "DDU (Pt. Deen Dayal Upadhyaya)", "PNBE (Patna)", "HWH (Howrah)"]
     sections = []
     for i in range(len(stations) - 1):
+        section_tracks = random.choice([["TRK_MAIN"], ["TRK_UP", "TRK_DOWN"]])
         sections.append({
             "section_id": f"SEC_{i+1}",
             "name": f"{stations[i]} to {stations[i+1]}",
-            "distance_km": random.randint(150, 450)
+            "distance_km": random.randint(150, 450),
+            "tracks": section_tracks
         })
 
     # 2. Train Movements (50+ trains)
@@ -49,6 +51,16 @@ def generate_data():
         destination = parts[1] if is_up else parts[0]
         direction = "UP" if is_up else "DOWN"
         
+        # Assign track based on direction and available tracks
+        assigned_track = None
+        if direction == "UP" and "TRK_UP" in section["tracks"]:
+            assigned_track = "TRK_UP"
+        elif direction == "DOWN" and "TRK_DOWN" in section["tracks"]:
+            assigned_track = "TRK_DOWN"
+        else:
+            # e.g. TRK_MAIN or whatever is available
+            assigned_track = section["tracks"][0]
+        
         trains.append({
             "train_id": f"TRN_{10000 + i}",
             "train_name": f"{origin.split(' ')[0]}-{destination.split(' ')[0]} {t_type['type']}",
@@ -58,6 +70,7 @@ def generate_data():
             "destination": destination,
             "direction": direction,
             "section": section["section_id"],
+            "track": assigned_track,
             "planned_start": planned_start.isoformat(),
             "planned_end": planned_end.isoformat(),
             "priority": t_type["priority"],
@@ -87,12 +100,15 @@ def generate_data():
         safety_critical = True if severity in ["High", "Critical"] else False
         maintenance_type = "Corrective" if urgency == "Emergency" else "Preventive"
         
+        assigned_track = random.choice(section["tracks"])
+        
         maintenance.append({
             "request_id": f"MNT_{5000 + i}",
             "department": dept_info["dept"],
             "asset_type": random.choice(dept_info["assets"]),
             "maintenance_type": maintenance_type,
             "section": section["section_id"],
+            "track": assigned_track,
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
             "duration": duration_hours * 60, # in minutes

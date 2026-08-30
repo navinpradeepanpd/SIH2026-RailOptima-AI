@@ -55,7 +55,8 @@ def detect_conflicts(trains, maintenance):
         "CRITICAL": 0,
         "HIGH": 0,
         "MEDIUM": 0,
-        "LOW": 0
+        "LOW": 0,
+        "total_overlap_duration_minutes": 0
     }
     
     activities = []
@@ -88,6 +89,11 @@ def detect_conflicts(trains, maintenance):
             if a1["section"] != a2["section"]:
                 continue
                 
+            track1 = a1["data"].get("track")
+            track2 = a2["data"].get("track")
+            if track1 and track2 and track1 != track2:
+                continue
+                
             # If both are trains, skip conflict detection for now (focus on train vs maintenance and maint vs maint)
             if a1["type"] == "train" and a2["type"] == "train":
                 continue
@@ -95,6 +101,7 @@ def detect_conflicts(trains, maintenance):
             if a1["start"] < a2["end"] and a1["end"] > a2["start"]:
                 overlap_start = max(a1["start"], a2["start"])
                 overlap_end = min(a1["end"], a2["end"])
+                overlap_duration_mins = int((overlap_end - overlap_start).total_seconds() / 60)
                 
                 act1_data = a1["data"]
                 act2_data = a2["data"]
@@ -115,18 +122,20 @@ def detect_conflicts(trains, maintenance):
                 id_1 = act1_data.get("train_id") or act1_data.get("request_id")
                 id_2 = act2_data.get("train_id") or act2_data.get("request_id")
                 
-                depts = []
-                if "department" in act1_data: depts.append(act1_data["department"])
-                if "department" in act2_data: depts.append(act2_data["department"])
+                type_1 = act1_data.get("train_type", act1_data.get("department", "Unknown"))
+                type_2 = act2_data.get("train_type", act2_data.get("department", "Unknown"))
                 
                 conflict = {
                     "conflict_id": f"CNF_{str(uuid.uuid4())[:8]}",
-                    "section": a1["section"],
                     "activity_1": id_1,
                     "activity_2": id_2,
-                    "department(s)": depts,
-                    "start_time": overlap_start.isoformat(),
-                    "end_time": overlap_end.isoformat(),
+                    "activity_1_type": type_1,
+                    "activity_2_type": type_2,
+                    "section": a1["section"],
+                    "track": track1 if track1 == track2 else (track1 or track2 or "Unknown"),
+                    "overlap_start": overlap_start.isoformat(),
+                    "overlap_end": overlap_end.isoformat(),
+                    "overlap_duration_minutes": overlap_duration_mins,
                     "severity": severity,
                     "reason": reason
                 }
@@ -134,6 +143,7 @@ def detect_conflicts(trains, maintenance):
                 conflicts.append(conflict)
                 summary_counts["total"] += 1
                 summary_counts[severity] += 1
+                summary_counts["total_overlap_duration_minutes"] += overlap_duration_mins
                 
     return {
         "summary_counts": summary_counts,

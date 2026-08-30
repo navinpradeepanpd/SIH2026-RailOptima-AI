@@ -13,6 +13,7 @@ interface DecisionExplanation {
     optimized_end: string | null;
     shift_duration: number | null;
     impact: string;
+    track?: string;
 }
 
 export default function DecisionCard({ req }: { req: any }) {
@@ -64,7 +65,7 @@ export default function DecisionCard({ req }: { req: any }) {
                     <p className="text-slate-400 text-xs font-bold mb-1">BLOCKING CONFLICT</p>
                     <p className="text-slate-300 text-sm flex items-center gap-2">
                         <AlertCircle size={14} className="text-orange-400" />
-                        {exp.conflict_ids.length > 0 ? `Conflicts with: ${exp.conflict_ids.join(", ")} on ${exp.affected_section}` : exp.reason}
+                        {exp.conflict_ids.length > 0 ? `Conflicts with: ${exp.conflict_ids.join(", ")} on ${exp.affected_section}${exp.track ? ` (${exp.track})` : ''}` : exp.reason}
                     </p>
                 </div>
 
