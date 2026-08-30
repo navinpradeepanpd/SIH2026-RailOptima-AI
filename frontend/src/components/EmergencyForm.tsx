@@ -43,6 +43,23 @@ export default function EmergencyForm({ onReplan, sections }: { onReplan: (data:
         <div className="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></div>
         <h2 className="text-xl font-bold text-rose-500">Inject Emergency Disruption</h2>
       </div>
+
+      <div className="flex gap-2 mb-6">
+        <button 
+          type="button" 
+          onClick={() => setFormData({ ...formData, section: "SEC_1", track: "Up", department: "Engineering", start_time: "2026-09-01T10:00:00", duration: 240 })}
+          className="text-xs bg-slate-900 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 text-slate-400 px-3 py-1 rounded transition-colors"
+        >
+          Preset: Track Washout (4h)
+        </button>
+        <button 
+          type="button" 
+          onClick={() => setFormData({ ...formData, section: "SEC_2", track: "", department: "Traction", start_time: "2026-09-02T14:00:00", duration: 120 })}
+          className="text-xs bg-slate-900 border border-slate-700 hover:border-emerald-500 hover:text-emerald-400 text-slate-400 px-3 py-1 rounded transition-colors"
+        >
+          Preset: Power Failure (2h)
+        </button>
+      </div>
       
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>

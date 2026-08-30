@@ -279,21 +279,47 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
             <h3 className="text-xl font-bold text-white mb-2">Automatic Surgical Replanning</h3>
             <p className="text-slate-400 mb-6">RailOptima isolates the emergency and performs cascading replanning only on affected operations.</p>
             
-            <div className="bg-slate-800 p-6 rounded-xl border border-emerald-500/30">
-               <h3 className="text-emerald-400 font-bold mb-4">Cascading Re-allocations (Delta)</h3>
-               {(emgData.actions?.length || 0) === 0 ? (
-                 <p className="text-slate-400">Emergency block safely isolated. No lower-priority blocks required moving.</p>
-               ) : (
-                 <div className="space-y-3">
-                   {emgData.actions.map((act: any, i: number) => (
-                     <div key={i} className="bg-slate-900 p-4 rounded border border-emerald-500/20">
-                       <p className="font-bold text-emerald-400">{act.action}</p>
-                       <p className="text-sm text-slate-400 mt-1">{act.reason}</p>
-                     </div>
-                   ))}
-                 </div>
-               )}
-             </div>
+            <div className="bg-slate-800 p-6 rounded-xl border border-rose-500/30 shadow-lg mb-6">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><AlertTriangle className="text-rose-500"/> EMERGENCY IMPACT REPORT</h2>
+                <div className="grid grid-cols-5 gap-4 text-center">
+                    <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Direct</p>
+                        <p className="text-2xl font-bold text-rose-500">{emgData.summary_metrics?.directly_affected || 0}</p>
+                    </div>
+                    <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Cascade</p>
+                        <p className="text-2xl font-bold text-orange-500">{emgData.summary_metrics?.cascade_affected || 0}</p>
+                    </div>
+                    <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Unchanged</p>
+                        <p className="text-2xl font-bold text-emerald-500">{emgData.summary_metrics?.unchanged || 0}</p>
+                    </div>
+                    <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Shifted</p>
+                        <p className="text-2xl font-bold text-blue-500">{emgData.summary_metrics?.shifted || 0}</p>
+                    </div>
+                    <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">Unscheduled</p>
+                        <p className="text-2xl font-bold text-slate-400">{emgData.summary_metrics?.unscheduled || 0}</p>
+                    </div>
+                </div>
+                
+                {(emgData.summary_metrics?.cascade_affected > 0) && (
+                    <div className="mt-6 bg-slate-900/50 p-4 rounded border border-orange-500/20">
+                        <p className="text-sm font-bold text-orange-400 mb-2">Cascade Visualization</p>
+                        <div className="flex items-center gap-2 text-sm text-slate-300 flex-wrap">
+                            <span className="bg-rose-500 text-white px-2 py-1 rounded text-xs font-bold">Emergency</span>
+                            {emgData.summary_metrics.cascade_activities.map((act: string, i: number) => (
+                                <React.Fragment key={i}>
+                                    <span className="text-slate-500">→</span>
+                                    <span className="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-xs font-bold">{act} shifted</span>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
              <div className="mt-8">
                <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} optData={optData} emgData={emgData} highlightSectionId="SEC_1" />
              </div>
@@ -303,26 +329,41 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
         {!loading && !error && step === 8 && optData && emgData && conflictData && (
           <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
             <h3 className="text-xl font-bold text-white mb-2">Final Executive Summary</h3>
-            <p className="text-slate-400 mb-6">The system successfully ingested uncoordinated schedules, mathematically resolved conflicts, and safely handled an emergency disruption.</p>
+            <p className="text-slate-400 mb-6">The system successfully ingested uncoordinated schedules, mathematically resolved conflicts, safely handled an emergency disruption, and preserved unaffected operations.</p>
             
             <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                    <p className="text-sm text-slate-400">Initial Conflicts</p>
-                    <p className="text-2xl font-bold text-rose-500">{conflictData.summary_counts?.total || 0}</p>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700 text-center">
+                    <p className="text-sm text-slate-400 mb-1">Total Blocks Shifted</p>
+                    <p className="text-3xl font-bold text-blue-500">{emgData.summary_metrics?.shifted || 0}</p>
                 </div>
-                <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                    <p className="text-sm text-slate-400">Successfully Scheduled</p>
-                    <p className="text-2xl font-bold text-emerald-400">{optData.summary_metrics?.scheduled_requests || 0}</p>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700 text-center">
+                    <p className="text-sm text-slate-400 mb-1">Total Operations Saved</p>
+                    <p className="text-3xl font-bold text-emerald-500">{emgData.summary_metrics?.unchanged || 0}</p>
                 </div>
-                <div className="bg-slate-800 p-4 rounded border border-slate-700">
-                    <p className="text-sm text-slate-400">Final Remaining Conflicts</p>
-                    <p className="text-2xl font-bold text-blue-400">0</p>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700 text-center">
+                    <p className="text-sm text-slate-400 mb-1">Final Remaining Conflicts</p>
+                    <p className="text-3xl font-bold text-blue-400">0</p>
                 </div>
             </div>
+            
+            {(emgData.actions?.length > 0) && (
+                <div className="mb-6">
+                    <h3 className="text-lg font-bold text-white mb-4">Emergency Decision Explanations</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        {emgData.after_schedule.filter((r: any) => r.decision_explanation && r.status != 'Emergency Scheduled').map((req: any, i: number) => (
+                            <DecisionCard key={`demo-emg-sched-${i}`} req={req} />
+                        ))}
+                        {emgData.unscheduled_requests?.map((req: any, i: number) => (
+                            <DecisionCard key={`demo-emg-unsched-${i}`} req={req} />
+                        ))}
+                    </div>
+                </div>
+            )}
+            
             <div className="bg-emerald-900/20 border border-emerald-500/30 p-6 rounded-xl text-center">
                 <CheckCircle className="mx-auto text-emerald-500 mb-4" size={48} />
-                <h2 className="text-2xl font-bold text-emerald-400 mb-2">Recommended Schedule Approved</h2>
-                <p className="text-emerald-200">RailOptima AI has generated a conflict-free, priority-aware maintenance plan.</p>
+                <h2 className="text-2xl font-bold text-emerald-400 mb-2">Ready for Operation</h2>
+                <p className="text-emerald-200">RailOptima AI has dynamically recovered the railway network schedule.</p>
             </div>
           </div>
         )}

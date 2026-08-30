@@ -256,49 +256,88 @@ export default function Dashboard() {
         )}
 
         {activeTab === "emergency" && (
-          <div className="grid grid-cols-12 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="col-span-4">
-              <EmergencyForm onReplan={setEmgData} sections={simData.sections} />
-            </div>
-            <div className="col-span-8">
-              {emgData ? (
-                <div className="space-y-6">
-                  <div className="bg-slate-800 p-6 rounded-xl border border-rose-500/30">
-                    <h3 className="text-rose-400 font-bold mb-4">Affected Operations</h3>
-                    <div className="flex gap-4">
-                      <div className="flex-1 bg-slate-900 p-4 rounded border border-slate-700">
-                        <p className="text-sm text-slate-400 mb-2">Trains Impacted</p>
-                        <p className="font-bold text-white">{(emgData?.affected_activities?.trains?.length || 0) > 0 ? emgData.affected_activities.trains.join(", ") : "None"}</p>
-                      </div>
-                      <div className="flex-1 bg-slate-900 p-4 rounded border border-slate-700">
-                        <p className="text-sm text-slate-400 mb-2">Maintenance Impacted</p>
-                        <p className="font-bold text-white">{(emgData?.affected_activities?.maintenance?.length || 0) > 0 ? emgData.affected_activities.maintenance.join(", ") : "None"}</p>
-                      </div>
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-12 gap-6">
+              <div className="col-span-4">
+                <EmergencyForm onReplan={setEmgData} sections={simData.sections} />
+              </div>
+              <div className="col-span-8">
+                {emgData ? (
+                  <div className="bg-slate-800 p-6 rounded-xl border border-rose-500/30 shadow-lg">
+                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><AlertTriangle className="text-rose-500"/> EMERGENCY IMPACT REPORT</h2>
+                    <div className="grid grid-cols-5 gap-4 text-center">
+                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Direct</p>
+                            <p className="text-2xl font-bold text-rose-500">{emgData.summary_metrics?.directly_affected || 0}</p>
+                        </div>
+                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Cascade</p>
+                            <p className="text-2xl font-bold text-orange-500">{emgData.summary_metrics?.cascade_affected || 0}</p>
+                        </div>
+                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Unchanged</p>
+                            <p className="text-2xl font-bold text-emerald-500">{emgData.summary_metrics?.unchanged || 0}</p>
+                        </div>
+                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Shifted</p>
+                            <p className="text-2xl font-bold text-blue-500">{emgData.summary_metrics?.shifted || 0}</p>
+                        </div>
+                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Unscheduled</p>
+                            <p className="text-2xl font-bold text-slate-400">{emgData.summary_metrics?.unscheduled || 0}</p>
+                        </div>
                     </div>
-                  </div>
-                  
-                  <div className="bg-slate-800 p-6 rounded-xl border border-emerald-500/30">
-                    <h3 className="text-emerald-400 font-bold mb-4">Cascading Re-allocations (Delta)</h3>
-                    {(emgData?.actions?.length || 0) === 0 ? (
-                      <p className="text-slate-400">No lower-priority blocks required moving.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {emgData.actions.map((act: any, i: number) => (
-                          <div key={i} className="bg-slate-900 p-4 rounded border border-emerald-500/20">
-                            <p className="font-bold text-emerald-400">{act.action}</p>
-                            <p className="text-sm text-slate-400 mt-1">{act.reason}</p>
-                          </div>
-                        ))}
-                      </div>
+                    
+                    {(emgData.summary_metrics?.cascade_affected > 0) && (
+                        <div className="mt-6 bg-slate-900/50 p-4 rounded border border-orange-500/20">
+                            <p className="text-sm font-bold text-orange-400 mb-2">Cascade Visualization</p>
+                            <div className="flex items-center gap-2 text-sm text-slate-300 flex-wrap">
+                                <span className="bg-rose-500 text-white px-2 py-1 rounded text-xs font-bold">Emergency</span>
+                                {emgData.summary_metrics.cascade_activities.map((act: string, i: number) => (
+                                    <React.Fragment key={i}>
+                                        <span className="text-slate-500">→</span>
+                                        <span className="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-xs font-bold">{act} shifted</span>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        </div>
                     )}
                   </div>
-                </div>
-              ) : (
-                <div className="bg-slate-800/50 p-12 rounded-xl border border-slate-700 border-dashed flex items-center justify-center h-full">
-                  <p className="text-slate-500">Submit an emergency block to visualize cascading schedule impacts.</p>
-                </div>
-              )}
+                ) : (
+                  <div className="bg-slate-800/50 p-12 rounded-xl border border-slate-700 border-dashed flex items-center justify-center h-full">
+                    <p className="text-slate-500">Submit an emergency block to visualize cascading schedule impacts.</p>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {emgData && (
+                <div className="space-y-6">
+                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+                        <h3 className="text-xl font-bold text-white mb-6">Emergency Replanning Timeline</h3>
+                        <OperationalTimeline 
+                            trains={simData.trains} 
+                            maintenance={simData.maintenance} 
+                            sections={simData.sections} 
+                            emgData={emgData}
+                        />
+                    </div>
+
+                    {(emgData.actions?.length > 0) && (
+                        <div>
+                            <h3 className="text-xl font-bold text-white mb-4">Replanning Decision Explanations</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                {emgData.after_schedule.filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                                    <DecisionCard key={`emg-sched-${i}`} req={req} />
+                                ))}
+                                {emgData.unscheduled_requests?.map((req: any, i: number) => (
+                                    <DecisionCard key={`emg-unsched-${i}`} req={req} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
           </div>
         )}
 

@@ -89,7 +89,9 @@ def replan_schedule(emergency_request, trains, maintenance, horizon_start_str, h
                     "action": action_str,
                     "reason": reason_str,
                     "type": "SHIFTED",
-                    "request_id": req["request_id"]
+                    "request_id": req["request_id"],
+                    "shift_minutes": shift_mins,
+                    "decision_explanation": req.get("decision_explanation")
                 })
         else:
             # It was unscheduled before, now scheduled?
@@ -101,12 +103,44 @@ def replan_schedule(emergency_request, trains, maintenance, horizon_start_str, h
         if req["request_id"] not in after_dict:
             action_str = f"Cancel {req['request_id']}"
             reason_str = f"No alternative window available due to Emergency {emergency_request['request_id']}."
+            unsched_req = next((r for r in after_result.get("unscheduled_requests", []) if r["request_id"] == req["request_id"]), {})
             actions.append({
                 "action": action_str,
                 "reason": reason_str,
                 "type": "UNSCHEDULED",
-                "request_id": req["request_id"]
+                "request_id": req["request_id"],
+                "decision_explanation": unsched_req.get("decision_explanation")
             })
+            
+    # Calculate Impact Metrics
+    shifted_count = 0
+    unscheduled_count = 0
+    total_shift_minutes = 0
+    cascade_affected_list = []
+    
+    for act in actions:
+        if act["type"] == "SHIFTED":
+            shifted_count += 1
+            total_shift_minutes += act.get("shift_minutes", 0)
+            if act["request_id"] not in affected_maint:
+                cascade_affected_list.append(act["request_id"])
+        elif act["type"] == "UNSCHEDULED":
+            unscheduled_count += 1
+            if act["request_id"] not in affected_maint:
+                cascade_affected_list.append(act["request_id"])
+                
+    directly_affected = len(affected_trains) + len(affected_maint)
+    unchanged = len(before_schedule) - shifted_count - unscheduled_count
+    
+    summary_metrics = {
+        "directly_affected": directly_affected,
+        "cascade_affected": len(cascade_affected_list),
+        "unchanged": unchanged,
+        "shifted": shifted_count,
+        "unscheduled": unscheduled_count,
+        "total_shift_minutes": total_shift_minutes,
+        "cascade_activities": cascade_affected_list
+    }
             
     return {
         "before_schedule": before_schedule,
@@ -115,5 +149,7 @@ def replan_schedule(emergency_request, trains, maintenance, horizon_start_str, h
             "maintenance": affected_maint
         },
         "actions": actions,
-        "after_schedule": after_schedule
+        "after_schedule": after_schedule,
+        "unscheduled_requests": after_result.get("unscheduled_requests", []),
+        "summary_metrics": summary_metrics
     }
