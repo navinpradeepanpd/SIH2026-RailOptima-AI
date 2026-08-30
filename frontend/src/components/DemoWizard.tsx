@@ -194,7 +194,7 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                 )}},
                 { header: "Severity", accessor: "severity", render: (v: string) => <span className={`px-2 py-1 rounded text-xs font-bold ${v === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-orange-500 text-white'}`}>{v}</span> },
                 { header: "Reason", accessor: "reason", render: (v: string) => <span className="text-xs text-slate-300">{v}</span> }
-            ]} data={conflictData.conflicts || []} />
+            ]} data={conflictData.conflicts || []} emptyMessage="Network is currently conflict-free." />
             <div className="mt-8">
               <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} conflicts={conflictData.conflicts || []} />
             </div>
@@ -212,7 +212,7 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                 { header: "Priority", accessor: "priority_level", render: (val: string) => <span className={`px-2 py-1 rounded text-xs font-bold ${val === 'CRITICAL' ? 'bg-rose-500/20 text-rose-500' : val === 'HIGH' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'}`}>{val}</span> },
                 { header: "Score", accessor: "priority_score" },
                 { header: "Duration", accessor: "duration", render: (val: number) => `${val}m` }
-            ]} data={priorityData || []} />
+            ]} data={priorityData || []} emptyMessage="No maintenance requests." />
           </div>
         )}
 
@@ -230,7 +230,7 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                 { header: "Status", accessor: "status", render: (val: string) => <span className={`px-2 py-1 rounded text-xs font-bold ${val === 'Scheduled' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>{val}</span> },
                 { header: "Optimized Start", accessor: "start_time", render: (val: string) => <span className="text-emerald-400 font-mono">{val ? new Date(val).toLocaleString() : "Unscheduled"}</span> },
                 { header: "Reason", accessor: "reason", render: (val: string) => val ? val : "N/A" }
-            ]} data={optData.scheduled_requests || []} />
+            ]} data={optData.scheduled_requests || []} emptyMessage="No scheduled activities." />
             <div className="mt-8">
               <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} conflicts={optData.conflicts_after?.conflicts || []} optData={optData} />
             </div>
@@ -313,7 +313,7 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                     </div>
                 </div>
                 
-                {(emgData.summary_metrics?.cascade_affected > 0) && (
+                {emgData.summary_metrics?.cascade_affected > 0 ? (
                     <div className="mt-6 bg-slate-900/50 p-4 rounded border border-orange-500/20">
                         <p className="text-sm font-bold text-orange-400 mb-2">Cascade Visualization</p>
                         <div className="flex items-center gap-2 text-sm text-slate-300 flex-wrap">
@@ -325,6 +325,10 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                                 </React.Fragment>
                             ))}
                         </div>
+                    </div>
+                ) : (
+                    <div className="mt-6 bg-slate-900/50 p-4 rounded border border-emerald-500/20 text-center">
+                        <p className="text-sm font-bold text-emerald-400">No cascading movement detected.</p>
                     </div>
                 )}
             </div>

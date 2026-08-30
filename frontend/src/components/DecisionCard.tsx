@@ -33,7 +33,7 @@ export default function DecisionCard({ req }: { req: any }) {
             <div className="flex items-center gap-2 border-b border-slate-700 pb-3">
                 {isUnscheduled ? <XCircle className="text-rose-400" size={20} /> : <Info className="text-blue-400" size={20} />}
                 <h4 className={`font-bold ${isUnscheduled ? 'text-rose-400' : 'text-blue-400'}`}>
-                    {isUnscheduled ? 'WHY NOT SCHEDULED' : 'WHY THIS BLOCK MOVED'}
+                    {isUnscheduled ? 'WHY NOT SCHEDULED' : 'WHY'}
                 </h4>
                 <span className="ml-auto text-sm font-mono bg-slate-900 px-2 py-1 rounded text-slate-300">
                     {req.request_id}
@@ -49,7 +49,7 @@ export default function DecisionCard({ req }: { req: any }) {
                 </div>
                 
                 <div className="bg-slate-900/50 p-3 rounded border border-slate-700">
-                    <p className="text-slate-400 font-bold mb-1 text-xs">{isUnscheduled ? 'RESULT' : 'AI DECISION'}</p>
+                    <p className="text-slate-400 font-bold mb-1 text-xs">DECISION</p>
                     <div className="flex items-center gap-2 text-emerald-400 font-bold">
                         {isUnscheduled ? (
                            <span className="text-rose-400">Rejected</span>
@@ -62,15 +62,15 @@ export default function DecisionCard({ req }: { req: any }) {
 
             <div className="space-y-3 mt-2">
                 <div>
-                    <p className="text-slate-400 text-xs font-bold mb-1">BLOCKING CONFLICT</p>
+                    <p className="text-slate-400 text-xs font-bold mb-1">WHY</p>
                     <p className="text-slate-300 text-sm flex items-center gap-2">
                         <AlertCircle size={14} className="text-orange-400" />
-                        {exp.conflict_ids.length > 0 ? `Conflicts with: ${exp.conflict_ids.join(", ")} on ${exp.affected_section}${exp.track ? ` (${exp.track})` : ''}` : exp.reason}
+                        {exp.conflict_ids.length > 0 ? `Conflicts with: ${exp.conflict_ids.join(", ")} on ${exp.affected_section}${exp.track ? ` (${exp.track})` : ''}` : exp.reason || "No feasible window found within the planning horizon."}
                     </p>
                 </div>
 
                 <div>
-                    <p className="text-slate-400 text-xs font-bold mb-1">CONSTRAINT ENFORCED</p>
+                    <p className="text-slate-400 text-xs font-bold mb-1">CONSTRAINT</p>
                     <p className="text-slate-300 text-sm flex items-center gap-2">
                         <ShieldAlert size={14} className="text-slate-400" />
                         {exp.constraint}
@@ -78,7 +78,7 @@ export default function DecisionCard({ req }: { req: any }) {
                 </div>
                 
                 <div>
-                    <p className="text-slate-400 text-xs font-bold mb-1">OPERATIONAL IMPACT</p>
+                    <p className="text-slate-400 text-xs font-bold mb-1">IMPACT</p>
                     <p className="text-emerald-400 text-sm flex items-center gap-2">
                         <CheckCircle size={14} className={isUnscheduled ? "text-rose-400" : "text-emerald-400"} />
                         <span className={isUnscheduled ? "text-rose-300" : "text-emerald-300"}>{exp.impact}</span>

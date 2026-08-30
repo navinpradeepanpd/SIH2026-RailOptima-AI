@@ -10,9 +10,10 @@ interface DataTableProps {
   title: string;
   columns: Column[];
   data: any[];
+  emptyMessage?: string;
 }
 
-export default function DataTable({ title, columns, data }: DataTableProps) {
+export default function DataTable({ title, columns, data, emptyMessage }: DataTableProps) {
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden flex flex-col">
       <div className="p-4 border-b border-slate-700 bg-slate-800/50">
@@ -33,7 +34,7 @@ export default function DataTable({ title, columns, data }: DataTableProps) {
             {data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="p-8 text-center text-slate-500">
-                  No data available
+                  {emptyMessage || "No data available"}
                 </td>
               </tr>
             ) : (

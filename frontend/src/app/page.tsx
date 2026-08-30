@@ -16,11 +16,12 @@ export default function Dashboard() {
   const [simData, setSimData] = useState<any>(null);
   const [conflictData, setConflictData] = useState<any>(null);
   const [priorityData, setPriorityData] = useState<any>(null);
-  
+
   const [optHorizon, setOptHorizon] = useState("weekly");
   const [optData, setOptData] = useState<any>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  
+  const [optError, setOptError] = useState<string | null>(null);
+
   const [emgData, setEmgData] = useState<any>(null);
   const [dataMode, setDataMode] = useState<any>(null);
 
@@ -49,6 +50,7 @@ export default function Dashboard() {
 
   const runOptimizer = async (horizon: string) => {
     setIsOptimizing(true);
+    setOptError(null);
     setOptHorizon(horizon);
     try {
       const res = await fetch(getApiUrl(`/api/planning/${horizon}`), {
@@ -59,9 +61,9 @@ export default function Dashboard() {
       if (!res.ok) throw new Error(`API Error: ${res.status}`);
       const data = await res.json();
       setOptData(data);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Failed to run optimizer. Check backend connection.");
+      setOptError(e.message || "Optimization could not be completed.");
     }
     setIsOptimizing(false);
   };
@@ -74,6 +76,9 @@ export default function Dashboard() {
           <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
           <p className="text-slate-400">{connectionError}</p>
           <p className="text-slate-500 text-sm mt-4">API URL configured as: {getApiUrl("")}</p>
+          <button onClick={() => window.location.reload()} className="mt-6 px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition-colors">
+            Retry Connection
+          </button>
         </div>
       </div>
     );
@@ -150,7 +155,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          
+
           <nav className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
             {[
               { id: "overview", label: "Overview", icon: Activity },
@@ -160,7 +165,7 @@ export default function Dashboard() {
               { id: "emergency", label: "Emergency Control", icon: AlertTriangle },
               { id: "demo", label: "SIH Demo Mode", icon: Play }
             ].map(tab => (
-              <button 
+              <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-all ${activeTab === tab.id ? 'bg-emerald-500 text-white shadow-lg' : 'hover:bg-slate-700 text-slate-400'}`}
@@ -174,7 +179,7 @@ export default function Dashboard() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-6 space-y-6">
-        
+
         {activeTab === "overview" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-4 gap-4">
@@ -195,8 +200,8 @@ export default function Dashboard() {
 
         {activeTab === "maintenance" && (
           <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <DataTable title="Scored Maintenance Queue" columns={maintCols} data={priorityData || []} />
-            <DataTable title="Detected Schedule Conflicts" columns={conflictCols} data={conflictData?.conflicts || []} />
+            <DataTable title="Scored Maintenance Queue" columns={maintCols} data={priorityData || []} emptyMessage="No maintenance requests." />
+            <DataTable title="Detected Schedule Conflicts" columns={conflictCols} data={conflictData?.conflicts || []} emptyMessage="Network is currently conflict-free." />
           </div>
         )}
 
@@ -208,14 +213,14 @@ export default function Dashboard() {
                 <p className="text-slate-400 text-sm">Our AI constraint engine will mathematically resolve overlaps and maximize block utilization.</p>
               </div>
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => runOptimizer("weekly")}
                   disabled={isOptimizing}
                   className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition-colors"
                 >
                   Generate Weekly Plan
                 </button>
-                <button 
+                <button
                   onClick={() => runOptimizer("monthly")}
                   disabled={isOptimizing}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded transition-colors"
@@ -227,7 +232,16 @@ export default function Dashboard() {
 
             {isOptimizing && <div className="text-center p-12 text-emerald-400 animate-pulse font-bold text-xl">Optimizer Engine Running...</div>}
 
-            {optData && !isOptimizing && (
+            {optError && (
+              <div className="bg-rose-950/30 border border-rose-500/50 p-4 rounded text-center text-rose-400">
+                <AlertTriangle className="mx-auto mb-2" size={24} />
+                <p className="font-bold mb-2">Optimization Failed</p>
+                <p className="text-sm mb-4">{optError}</p>
+                <button onClick={() => runOptimizer(optHorizon)} className="px-4 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition-colors text-sm">Retry Optimization</button>
+              </div>
+            )}
+
+            {optData && !isOptimizing && !optError && (
               <>
                 <div className="grid grid-cols-4 gap-4">
                   <StatCard title="Scheduled Requests" value={optData?.summary_metrics?.scheduled_requests || 0} icon={Settings} colorClass="text-emerald-400" trend={`${optData?.summary_metrics?.unscheduled_requests || 0} Unscheduled`} trendUp />
@@ -235,15 +249,16 @@ export default function Dashboard() {
                   <StatCard title="Critical Tasks Completed" value={optData?.summary_metrics?.critical_maintenance_completed || 0} icon={Activity} colorClass="text-blue-400" />
                   <StatCard title="Conflicts Remaining" value={optData?.conflicts_after?.total || 0} icon={ShieldAlert} colorClass="text-emerald-400" trend={`Resolved ${optData?.summary_metrics?.conflicts_resolved || 0} overlaps`} trendUp />
                 </div>
-                <DataTable 
-                  title={`Optimized ${optHorizon.charAt(0).toUpperCase() + optHorizon.slice(1)} Schedule`} 
-                  columns={[...maintCols, { header: "Optimized Start", accessor: "start_time", render: (v: string) => <span className="text-emerald-400 font-mono">{v ? new Date(v).toLocaleString() : 'N/A'}</span> }]} 
-                  data={optData?.scheduled_requests || []} 
+                <DataTable
+                  title={`Recommended ${optHorizon.charAt(0).toUpperCase() + optHorizon.slice(1)} Schedule`}
+                  columns={[...maintCols, { header: "Optimized Start", accessor: "start_time", render: (v: string) => <span className="text-emerald-400 font-mono">{v ? new Date(v).toLocaleString() : 'N/A'}</span> }]}
+                  data={optData?.scheduled_requests || []}
+                  emptyMessage="No scheduled activities."
                 />
-                
+
                 {((optData?.scheduled_requests || []).some((r: any) => r.decision_explanation) || (optData?.unscheduled_requests || []).some((r: any) => r.decision_explanation)) && (
                     <div className="mt-8">
-                        <h3 className="text-xl font-bold text-white mb-4">AI Decision Traces</h3>
+                        <h3 className="text-xl font-bold text-white mb-4">RailOptima generated a conflict-free maintenance window</h3>
                         <div className="grid grid-cols-2 gap-4">
                             {(optData?.scheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
                                 <DecisionCard key={`sched-${i}`} req={req} />
@@ -254,7 +269,7 @@ export default function Dashboard() {
                         </div>
                     </div>
                 )}
-                
+
                 <div className="bg-slate-800 p-4 rounded text-center border border-slate-700 mt-6">
                     <p className="text-slate-400">
                         RailOptima evaluated <span className="text-white font-bold">{optData?.summary_metrics?.total_maintenance_requests || 0}</span> maintenance requests and resolved <span className="text-emerald-400 font-bold">{optData?.summary_metrics?.conflicts_resolved || 0}</span> scheduling conflicts while preserving <span className="text-blue-400 font-bold">{optData?.summary_metrics?.critical_maintenance_completed || 0}</span> critical maintenance tasks.
@@ -297,8 +312,8 @@ export default function Dashboard() {
                             <p className="text-2xl font-bold text-slate-400">{emgData.summary_metrics?.unscheduled || 0}</p>
                         </div>
                     </div>
-                    
-                    {(emgData.summary_metrics?.cascade_affected > 0) && (
+
+                    {emgData.summary_metrics?.cascade_affected > 0 ? (
                         <div className="mt-6 bg-slate-900/50 p-4 rounded border border-orange-500/20">
                             <p className="text-sm font-bold text-orange-400 mb-2">Cascade Visualization</p>
                             <div className="flex items-center gap-2 text-sm text-slate-300 flex-wrap">
@@ -310,6 +325,10 @@ export default function Dashboard() {
                                     </React.Fragment>
                                 ))}
                             </div>
+                        </div>
+                    ) : (
+                        <div className="mt-6 bg-slate-900/50 p-4 rounded border border-emerald-500/20 text-center">
+                            <p className="text-sm font-bold text-emerald-400">No cascading movement detected.</p>
                         </div>
                     )}
                   </div>
@@ -325,10 +344,10 @@ export default function Dashboard() {
                 <div className="space-y-6">
                     <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
                         <h3 className="text-xl font-bold text-white mb-6">Emergency Replanning Timeline</h3>
-                        <OperationalTimeline 
-                            trains={simData.trains} 
-                            maintenance={simData.maintenance} 
-                            sections={simData.sections} 
+                        <OperationalTimeline
+                            trains={simData.trains}
+                            maintenance={simData.maintenance}
+                            sections={simData.sections}
                             emgData={emgData}
                         />
                     </div>
@@ -356,7 +375,7 @@ export default function Dashboard() {
             <DemoWizard />
           </div>
         )}
-        
+
       </main>
     </div>
   );
