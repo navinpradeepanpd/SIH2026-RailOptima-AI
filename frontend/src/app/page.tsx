@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Activity, AlertTriangle, BarChart3, Calendar, Clock, Map, Play, Settings, ShieldAlert, Zap } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, Calendar, Clock, Map, Play, Settings, ShieldAlert, Zap, Radio, Menu } from 'lucide-react';
 import { getApiUrl } from '../lib/api';
+import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
 import OperationalTimeline from '../components/OperationalTimeline';
 import DataTable from '../components/DataTable';
@@ -24,11 +25,11 @@ export default function Dashboard() {
 
   const [emgData, setEmgData] = useState<any>(null);
   const [dataMode, setDataMode] = useState<any>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Initial fetch
     Promise.all([
       fetch(getApiUrl("/api/simulation")).then(r => { if (!r.ok) throw new Error("Failed to load simulation"); return r.json(); }),
       fetch(getApiUrl("/api/conflicts")).then(r => { if (!r.ok) throw new Error("Failed to load conflicts"); return r.json(); }),
@@ -68,15 +69,16 @@ export default function Dashboard() {
     setIsOptimizing(false);
   };
 
+  // ── Connection Error Screen ──
   if (connectionError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-6">
-        <div className="bg-rose-950/30 border border-rose-500/50 p-8 rounded-xl max-w-lg text-center shadow-[0_0_30px_rgba(225,29,72,0.15)]">
-          <ShieldAlert className="mx-auto mb-4 text-rose-500" size={48} />
-          <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
-          <p className="text-slate-400">{connectionError}</p>
-          <p className="text-slate-500 text-sm mt-4">API URL configured as: {getApiUrl("")}</p>
-          <button onClick={() => window.location.reload()} className="mt-6 px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition-colors">
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-deep)] text-white p-6">
+        <div className="glass-panel-elevated glow-border-rose p-10 max-w-lg text-center">
+          <ShieldAlert className="mx-auto mb-4 text-rose-400" size={48} />
+          <h2 className="text-xl font-bold text-white mb-3">Connection Error</h2>
+          <p className="text-[var(--text-secondary)] text-sm mb-2">{connectionError}</p>
+          <p className="text-[var(--text-muted)] text-xs mb-6">API: {getApiUrl("")}</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-2.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white rounded-lg font-bold transition-all">
             Retry Connection
           </button>
         </div>
@@ -84,8 +86,24 @@ export default function Dashboard() {
     );
   }
 
+  // ── Loading Screen ──
   if (!simData || !conflictData || !priorityData) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-950 text-emerald-400 font-bold animate-pulse">Initializing RailOptima AI Systems...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--bg-deep)] gap-4">
+        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center animate-dot-pulse">
+          <Zap size={20} className="text-white" />
+        </div>
+        <p className="text-cyan-400 font-bold animate-pulse text-sm">Initializing RailOptima AI Systems...</p>
+        <div className="flex gap-1">
+          {[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-cyan-400/50 animate-dot-pulse" style={{ animationDelay: `${i * 200}ms` }} />)}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Demo Mode (full screen) ──
+  if (activeTab === "demo") {
+    return <DemoWizard onExit={() => setActiveTab("overview")} />;
   }
 
   const maintCols = [
@@ -93,289 +111,305 @@ export default function Dashboard() {
     { header: "Dept", accessor: "department" },
     { header: "Section", accessor: "section" },
     { header: "Priority", accessor: "priority_level", render: (v: string) => (
-      <span className={`px-2 py-1 rounded text-xs font-bold ${v === 'CRITICAL' ? 'bg-rose-500/20 text-rose-500' : v === 'HIGH' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'}`}>{v}</span>
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${v === 'CRITICAL' ? 'bg-rose-500/15 text-rose-400' : v === 'HIGH' ? 'bg-amber-500/15 text-amber-400' : 'bg-cyan-500/15 text-cyan-400'}`}>{v}</span>
     )},
     { header: "Score", accessor: "priority_score" },
-    { header: "Duration", accessor: "duration", render: (v: number) => `${v}m` }
+    { header: "Duration", accessor: "duration", render: (v: number) => <span className="font-mono">{v}m</span> }
   ];
 
   const conflictCols = [
     { header: "Conflict", accessor: "activity_1", render: (v: any, row: any) => (
       <div>
-        <p className="font-bold text-slate-200">{row.activity_1} vs {row.activity_2}</p>
-        {row.activity_1_type && <p className="text-xs text-slate-400">{row.activity_1_type} vs {row.activity_2_type}</p>}
+        <p className="font-bold text-sm text-[var(--text-primary)]">{row.activity_1} vs {row.activity_2}</p>
+        {row.activity_1_type && <p className="text-[10px] text-[var(--text-muted)]">{row.activity_1_type} vs {row.activity_2_type}</p>}
       </div>
     )},
     { header: "Location", accessor: "section", render: (v: any, row: any) => (
       <div>
-        <p className="text-slate-300 font-mono">{row.section}</p>
-        {row.track && row.track !== "Unknown" && <p className="text-xs text-slate-400 font-mono">{row.track}</p>}
+        <p className="text-[var(--text-secondary)] font-mono text-xs">{row.section}</p>
+        {row.track && row.track !== "Unknown" && <p className="text-[10px] text-[var(--text-muted)] font-mono">{row.track}</p>}
       </div>
     )},
-    { header: "Time Overlap", accessor: "overlap_start", render: (v: any, row: any) => {
-      if (!row.overlap_start) return <span className="text-slate-500">N/A</span>;
+    { header: "Overlap", accessor: "overlap_start", render: (v: any, row: any) => {
+      if (!row.overlap_start) return <span className="text-[var(--text-muted)]">N/A</span>;
       return (
       <div>
-        <p className="text-slate-300 text-sm">
+        <p className="text-[var(--text-secondary)] text-xs font-mono">
           {new Date(row.overlap_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} → {new Date(row.overlap_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
-        <p className="text-xs text-orange-400 font-bold">{row.overlap_duration_minutes} mins</p>
+        <p className="text-[10px] text-amber-400 font-bold">{row.overlap_duration_minutes}m</p>
       </div>
     )}},
     { header: "Severity", accessor: "severity", render: (v: string) => (
-      <span className={`px-2 py-1 rounded text-xs font-bold ${v === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-orange-500 text-white'}`}>{v}</span>
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${v === 'CRITICAL' ? 'bg-rose-500/15 text-rose-400' : 'bg-amber-500/15 text-amber-400'}`}>{v}</span>
     )},
-    { header: "Reason", accessor: "reason", render: (v: string) => <span className="text-xs text-slate-300">{v}</span> }
+    { header: "Reason", accessor: "reason", render: (v: string) => <span className="text-[10px] text-[var(--text-muted)]">{v}</span> }
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col text-slate-300">
-      <header className="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-10 shadow-md">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+    <div className="min-h-screen bg-[var(--bg-deep)] flex">
+      {/* ── SIDEBAR ── */}
+      <Sidebar activeTab={activeTab} onTabChange={(t) => { setActiveTab(t); setMobileOpen(false); }} dataMode={dataMode} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+
+      {/* ── MAIN CONTENT ── */}
+      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+
+        {/* ── TOP BAR ── */}
+        <header className="h-[52px] bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
           <div className="flex items-center gap-3">
-            <div className="bg-emerald-500 p-2 rounded-lg text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-              <Zap size={24} />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-black text-white tracking-tight leading-none">RAIL<span className="text-emerald-400">OPTIMA</span> AI</h1>
-              {dataMode?.mode === "simulation" && (
-                <span className="text-[10px] uppercase font-bold text-orange-400 tracking-wider mt-1 flex items-center gap-1">
-                  <Activity size={10} /> SIMULATION MODE — {dataMode.message || "Synthetic Railway Operations Data"}
-                </span>
-              )}
-              {dataMode?.mode === "live" && !dataMode?.live_configured && (
-                <span className="text-[10px] uppercase font-bold text-rose-500 tracking-wider mt-1 flex items-center gap-1">
-                  <AlertTriangle size={10} /> LIVE DATA UNAVAILABLE — {dataMode.message || "Provider not configured"}
-                </span>
-              )}
-              {dataMode?.mode === "live" && dataMode?.live_configured && (
-                <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider mt-1 flex items-center gap-1">
-                  <Activity size={10} /> LIVE MODE — {dataMode.message || "Authorized provider connected"}
-                </span>
-              )}
-            </div>
+            <button className="md:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)]" onClick={() => setMobileOpen(true)}>
+              <Menu size={20} />
+            </button>
+            <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider">
+              {activeTab === "overview" && "Operations Overview"}
+              {activeTab === "analytics" && "Analytics & KPIs"}
+              {activeTab === "maintenance" && "Maintenance & Conflicts"}
+              {activeTab === "optimizer" && "AI Optimizer"}
+              {activeTab === "emergency" && "Emergency Control"}
+            </h2>
           </div>
+          <div className="flex items-center gap-4">
+            {dataMode?.mode === "simulation" && (
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                <Radio size={12} className="animate-dot-pulse" /> Simulation Data
+              </div>
+            )}
+            <span className="text-[10px] font-mono text-[var(--text-muted)]">
+              {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </span>
+          </div>
+        </header>
 
-          <nav className="flex gap-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
-            {[
-              { id: "overview", label: "Overview", icon: Activity },
-              { id: "analytics", label: "Analytics & KPIs", icon: BarChart3 },
-              { id: "maintenance", label: "Maintenance & Conflicts", icon: ShieldAlert },
-              { id: "optimizer", label: "AI Optimizer", icon: Calendar },
-              { id: "emergency", label: "Emergency Control", icon: AlertTriangle },
-              { id: "demo", label: "SIH Demo Mode", icon: Play }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-all ${activeTab === tab.id ? 'bg-emerald-500 text-white shadow-lg' : 'hover:bg-slate-700 text-slate-400'}`}
-              >
-                <tab.icon size={16} />
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+        {/* ── CONTENT AREA ── */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* ════════ OVERVIEW ════════ */}
+          {activeTab === "overview" && (
+            <div className="space-y-6 animate-slide-in-up">
+              {/* Hero */}
+              <div className="glass-panel-elevated p-6 flex items-center justify-between overflow-hidden relative">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-[var(--text-primary)] mb-1">Railway Operations Command Center</h1>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Real-time network monitoring, conflict detection, and AI-powered schedule optimization.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent-primary-dim)] border border-cyan-400/20">
+                  <div className="w-2 h-2 rounded-full bg-cyan-400 animate-dot-pulse" />
+                  <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
+                    {dataMode?.mode === "simulation" ? "Simulation Active" : "Monitoring"}
+                  </span>
+                </div>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard title="Active Trains" value={simData?.trains?.length || 0} icon={Map} accentColor="info" />
+                <StatCard title="Pending Maintenance" value={simData?.maintenance?.length || 0} icon={Settings} accentColor="amber" />
+                <StatCard title="Total Conflicts" value={conflictData?.summary_counts?.total || 0} icon={ShieldAlert} accentColor="rose" trend={`${conflictData?.summary_counts?.CRITICAL || 0} Critical`} />
+                <StatCard title="Block Utilization" value={optData?.summary_metrics?.utilized_block_hours ? `${optData.summary_metrics.utilized_block_hours}h` : '0h'} icon={Clock} accentColor="emerald" />
+              </div>
+
+              {/* Timeline */}
+              <OperationalTimeline trains={simData?.trains || []} maintenance={simData?.maintenance || []} sections={simData?.sections || []} conflicts={conflictData?.conflicts || []} />
+            </div>
+          )}
+
+          {/* ════════ ANALYTICS ════════ */}
+          {activeTab === "analytics" && (
+            <div className="animate-slide-in-up">
+              <AnalyticsView simData={simData} conflictData={conflictData} optData={optData} />
+            </div>
+          )}
+
+          {/* ════════ MAINTENANCE & CONFLICTS ════════ */}
+          {activeTab === "maintenance" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slide-in-up">
+              <DataTable title="Scored Maintenance Queue" columns={maintCols} data={priorityData || []} emptyMessage="No maintenance requests." />
+              <DataTable title="Detected Schedule Conflicts" columns={conflictCols} data={conflictData?.conflicts || []} emptyMessage="Network is currently conflict-free." />
+            </div>
+          )}
+
+          {/* ════════ AI OPTIMIZER ════════ */}
+          {activeTab === "optimizer" && (
+            <div className="space-y-6 animate-slide-in-up">
+              {/* Controls */}
+              <div className="glass-panel-elevated p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-[var(--text-primary)] mb-1">Multi-Horizon Block Optimizer</h2>
+                  <p className="text-[var(--text-secondary)] text-xs">Constraint-based engine resolves overlaps and maximizes block utilization.</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => runOptimizer("weekly")}
+                    disabled={isOptimizing}
+                    className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:from-slate-700 disabled:to-slate-800 text-white font-bold py-2.5 px-5 rounded-lg transition-all text-sm shadow-lg shadow-cyan-900/20"
+                  >
+                    Weekly Plan
+                  </button>
+                  <button
+                    onClick={() => runOptimizer("monthly")}
+                    disabled={isOptimizing}
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-800 text-white font-bold py-2.5 px-5 rounded-lg transition-all text-sm shadow-lg shadow-indigo-900/20"
+                  >
+                    Monthly Plan
+                  </button>
+                </div>
+              </div>
+
+              {/* Loading */}
+              {isOptimizing && (
+                <div className="glass-panel text-center p-12">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center mx-auto mb-4 animate-dot-pulse">
+                    <Zap size={20} className="text-white" />
+                  </div>
+                  <p className="text-cyan-400 font-bold animate-pulse">Optimizer Engine Running...</p>
+                </div>
+              )}
+
+              {/* Error */}
+              {optError && (
+                <div className="glass-panel glow-border-rose p-6 text-center">
+                  <AlertTriangle className="mx-auto mb-3 text-rose-400" size={28} />
+                  <p className="font-bold text-[var(--text-primary)] mb-2">Optimization Failed</p>
+                  <p className="text-sm text-[var(--text-secondary)] mb-4">{optError}</p>
+                  <button onClick={() => runOptimizer(optHorizon)} className="px-5 py-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white rounded-lg font-bold transition-all text-sm">
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* Results */}
+              {optData && !isOptimizing && !optError && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard title="Scheduled" value={optData?.summary_metrics?.scheduled_requests || 0} icon={Settings} accentColor="emerald" trend={`${optData?.summary_metrics?.unscheduled_requests || 0} Unscheduled`} trendUp />
+                    <StatCard title="Block Hours" value={optData?.summary_metrics?.utilized_block_hours || 0} icon={Clock} accentColor="cyan" trend={`Requested: ${optData?.summary_metrics?.block_hours || 0}h`} trendUp />
+                    <StatCard title="Critical Done" value={optData?.summary_metrics?.critical_maintenance_completed || 0} icon={Activity} accentColor="info" />
+                    <StatCard title="Conflicts Left" value={optData?.conflicts_after?.total || 0} icon={ShieldAlert} accentColor="emerald" trend={`Resolved ${optData?.summary_metrics?.conflicts_resolved || 0}`} trendUp />
+                  </div>
+
+                  <DataTable
+                    title={`Recommended ${optHorizon.charAt(0).toUpperCase() + optHorizon.slice(1)} Schedule`}
+                    columns={[...maintCols, { header: "Optimized Start", accessor: "start_time", render: (v: string) => <span className="text-emerald-400 font-mono text-xs">{v ? new Date(v).toLocaleString() : 'N/A'}</span> }]}
+                    data={optData?.scheduled_requests || []}
+                    emptyMessage="No scheduled activities."
+                  />
+
+                  {/* Decision Cards */}
+                  {((optData?.scheduled_requests || []).some((r: any) => r.decision_explanation) || (optData?.unscheduled_requests || []).some((r: any) => r.decision_explanation)) && (
+                      <div>
+                          <h3 className="text-sm font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider">Decision Intelligence — Why Each Block Was Moved</h3>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              {(optData?.scheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                                  <DecisionCard key={`sched-${i}`} req={req} />
+                              ))}
+                              {(optData?.unscheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                                  <DecisionCard key={`unsched-${i}`} req={req} />
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
+                  <div className="glass-panel p-4 text-center">
+                      <p className="text-[var(--text-secondary)] text-xs">
+                          RailOptima evaluated <span className="text-[var(--text-primary)] font-bold">{optData?.summary_metrics?.total_maintenance_requests || 0}</span> maintenance requests and resolved <span className="text-emerald-400 font-bold">{optData?.summary_metrics?.conflicts_resolved || 0}</span> conflicts while preserving <span className="text-cyan-400 font-bold">{optData?.summary_metrics?.critical_maintenance_completed || 0}</span> critical tasks.
+                      </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ════════ EMERGENCY CONTROL ════════ */}
+          {activeTab === "emergency" && (
+            <div className="space-y-6 animate-slide-in-up">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-4">
+                  <EmergencyForm onReplan={setEmgData} sections={simData.sections} />
+                </div>
+                <div className="lg:col-span-8">
+                  {emgData ? (
+                    <div className="glass-panel-elevated p-6 glow-border-rose animate-slide-in-up">
+                      <h2 className="text-sm font-bold text-[var(--text-primary)] mb-5 flex items-center gap-2 uppercase tracking-wider">
+                        <AlertTriangle className="text-rose-400" size={16}/> Emergency Impact Report
+                      </h2>
+                      <div className="grid grid-cols-5 gap-3 text-center">
+                          {[
+                            { label: "Direct", value: emgData.summary_metrics?.directly_affected || 0, color: "text-rose-400" },
+                            { label: "Cascade", value: emgData.summary_metrics?.cascade_affected || 0, color: "text-amber-400" },
+                            { label: "Unchanged", value: emgData.summary_metrics?.unchanged || 0, color: "text-emerald-400" },
+                            { label: "Shifted", value: emgData.summary_metrics?.shifted || 0, color: "text-cyan-400" },
+                            { label: "Unscheduled", value: emgData.summary_metrics?.unscheduled || 0, color: "text-[var(--text-muted)]" },
+                          ].map((item, i) => (
+                            <div key={i} className="bg-[var(--bg-deep)] p-3 rounded-lg border border-[var(--border-subtle)]">
+                                <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-bold">{item.label}</p>
+                                <p className={`text-2xl font-bold ${item.color} font-mono`}>{item.value}</p>
+                            </div>
+                          ))}
+                      </div>
+
+                      {emgData.summary_metrics?.cascade_affected > 0 ? (
+                          <div className="mt-5 bg-[var(--bg-deep)] p-4 rounded-lg border border-amber-500/15">
+                              <p className="text-[10px] font-bold text-amber-400 mb-2 uppercase tracking-wider">Cascade Flow</p>
+                              <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] flex-wrap">
+                                  <span className="bg-rose-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold">Emergency</span>
+                                  {emgData.summary_metrics.cascade_activities.map((act: string, i: number) => (
+                                      <React.Fragment key={i}>
+                                          <span className="text-[var(--text-muted)]">→</span>
+                                          <span className="bg-amber-500/15 text-amber-400 px-2.5 py-1 rounded-full text-[10px] font-bold">{act} shifted</span>
+                                      </React.Fragment>
+                                  ))}
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="mt-5 bg-[var(--bg-deep)] p-4 rounded-lg border border-emerald-500/15 text-center">
+                              <p className="text-xs font-bold text-emerald-400">No cascading movement detected.</p>
+                          </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="glass-panel border-dashed p-12 flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <AlertTriangle className="mx-auto mb-3 text-[var(--text-muted)]" size={32} />
+                        <p className="text-[var(--text-muted)] text-sm">Submit an emergency block to visualize cascading schedule impacts.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {emgData && (
+                  <div className="space-y-6">
+                      <div className="glass-panel-elevated p-6">
+                          <h3 className="text-sm font-bold text-[var(--text-primary)] mb-5 uppercase tracking-wider">Emergency Replanning Timeline</h3>
+                          <OperationalTimeline
+                              trains={simData.trains}
+                              maintenance={simData.maintenance}
+                              sections={simData.sections}
+                              emgData={emgData}
+                          />
+                      </div>
+
+                      {(emgData.actions?.length > 0) && (
+                          <div>
+                              <h3 className="text-sm font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider">Replanning Decision Intelligence</h3>
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                  {emgData.after_schedule.filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                                      <DecisionCard key={`emg-sched-${i}`} req={req} />
+                                  ))}
+                                  {emgData.unscheduled_requests?.map((req: any, i: number) => (
+                                      <DecisionCard key={`emg-unsched-${i}`} req={req} />
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              )}
+            </div>
+          )}
+
         </div>
-      </header>
-
-      <main className="flex-1 max-w-7xl mx-auto w-full p-6 space-y-6">
-
-        {activeTab === "overview" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-4 gap-4">
-              <StatCard title="Active Trains" value={simData?.trains?.length || 0} icon={Map} colorClass="text-blue-400" />
-              <StatCard title="Pending Maintenance" value={simData?.maintenance?.length || 0} icon={Settings} colorClass="text-orange-400" />
-              <StatCard title="Total Conflicts" value={conflictData?.summary_counts?.total || 0} icon={ShieldAlert} colorClass="text-rose-400" trend={`${conflictData?.summary_counts?.CRITICAL || 0} Critical`} />
-              <StatCard title="Block Utilization" value={optData?.summary_metrics?.utilized_block_hours ? `${optData.summary_metrics.utilized_block_hours}h` : '0h'} icon={Clock} colorClass="text-emerald-400" />
-            </div>
-            <OperationalTimeline trains={simData?.trains || []} maintenance={simData?.maintenance || []} sections={simData?.sections || []} conflicts={conflictData?.conflicts || []} />
-          </div>
-        )}
-
-        {activeTab === "analytics" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <AnalyticsView simData={simData} conflictData={conflictData} optData={optData} />
-          </div>
-        )}
-
-        {activeTab === "maintenance" && (
-          <div className="grid grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <DataTable title="Scored Maintenance Queue" columns={maintCols} data={priorityData || []} emptyMessage="No maintenance requests." />
-            <DataTable title="Detected Schedule Conflicts" columns={conflictCols} data={conflictData?.conflicts || []} emptyMessage="Network is currently conflict-free." />
-          </div>
-        )}
-
-        {activeTab === "optimizer" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-white mb-2">Multi-Horizon Block Optimizer</h2>
-                <p className="text-slate-400 text-sm">Our AI constraint engine will mathematically resolve overlaps and maximize block utilization.</p>
-              </div>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => runOptimizer("weekly")}
-                  disabled={isOptimizing}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded transition-colors"
-                >
-                  Generate Weekly Plan
-                </button>
-                <button
-                  onClick={() => runOptimizer("monthly")}
-                  disabled={isOptimizing}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded transition-colors"
-                >
-                  Generate Monthly Plan
-                </button>
-              </div>
-            </div>
-
-            {isOptimizing && <div className="text-center p-12 text-emerald-400 animate-pulse font-bold text-xl">Optimizer Engine Running...</div>}
-
-            {optError && (
-              <div className="bg-rose-950/30 border border-rose-500/50 p-4 rounded text-center text-rose-400">
-                <AlertTriangle className="mx-auto mb-2" size={24} />
-                <p className="font-bold mb-2">Optimization Failed</p>
-                <p className="text-sm mb-4">{optError}</p>
-                <button onClick={() => runOptimizer(optHorizon)} className="px-4 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition-colors text-sm">Retry Optimization</button>
-              </div>
-            )}
-
-            {optData && !isOptimizing && !optError && (
-              <>
-                <div className="grid grid-cols-4 gap-4">
-                  <StatCard title="Scheduled Requests" value={optData?.summary_metrics?.scheduled_requests || 0} icon={Settings} colorClass="text-emerald-400" trend={`${optData?.summary_metrics?.unscheduled_requests || 0} Unscheduled`} trendUp />
-                  <StatCard title="Block Hours Utilized" value={optData?.summary_metrics?.utilized_block_hours || 0} icon={Clock} colorClass="text-emerald-400" trend={`Requested: ${optData?.summary_metrics?.block_hours || 0}h`} trendUp />
-                  <StatCard title="Critical Tasks Completed" value={optData?.summary_metrics?.critical_maintenance_completed || 0} icon={Activity} colorClass="text-blue-400" />
-                  <StatCard title="Conflicts Remaining" value={optData?.conflicts_after?.total || 0} icon={ShieldAlert} colorClass="text-emerald-400" trend={`Resolved ${optData?.summary_metrics?.conflicts_resolved || 0} overlaps`} trendUp />
-                </div>
-                <DataTable
-                  title={`Recommended ${optHorizon.charAt(0).toUpperCase() + optHorizon.slice(1)} Schedule`}
-                  columns={[...maintCols, { header: "Optimized Start", accessor: "start_time", render: (v: string) => <span className="text-emerald-400 font-mono">{v ? new Date(v).toLocaleString() : 'N/A'}</span> }]}
-                  data={optData?.scheduled_requests || []}
-                  emptyMessage="No scheduled activities."
-                />
-
-                {((optData?.scheduled_requests || []).some((r: any) => r.decision_explanation) || (optData?.unscheduled_requests || []).some((r: any) => r.decision_explanation)) && (
-                    <div className="mt-8">
-                        <h3 className="text-xl font-bold text-white mb-4">RailOptima generated a conflict-free maintenance window</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            {(optData?.scheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
-                                <DecisionCard key={`sched-${i}`} req={req} />
-                            ))}
-                            {(optData?.unscheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
-                                <DecisionCard key={`unsched-${i}`} req={req} />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <div className="bg-slate-800 p-4 rounded text-center border border-slate-700 mt-6">
-                    <p className="text-slate-400">
-                        RailOptima evaluated <span className="text-white font-bold">{optData?.summary_metrics?.total_maintenance_requests || 0}</span> maintenance requests and resolved <span className="text-emerald-400 font-bold">{optData?.summary_metrics?.conflicts_resolved || 0}</span> scheduling conflicts while preserving <span className="text-blue-400 font-bold">{optData?.summary_metrics?.critical_maintenance_completed || 0}</span> critical maintenance tasks.
-                    </p>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {activeTab === "emergency" && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-12 gap-6">
-              <div className="col-span-4">
-                <EmergencyForm onReplan={setEmgData} sections={simData.sections} />
-              </div>
-              <div className="col-span-8">
-                {emgData ? (
-                  <div className="bg-slate-800 p-6 rounded-xl border border-rose-500/30 shadow-lg">
-                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><AlertTriangle className="text-rose-500"/> EMERGENCY IMPACT REPORT</h2>
-                    <div className="grid grid-cols-5 gap-4 text-center">
-                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Direct</p>
-                            <p className="text-2xl font-bold text-rose-500">{emgData.summary_metrics?.directly_affected || 0}</p>
-                        </div>
-                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Cascade</p>
-                            <p className="text-2xl font-bold text-orange-500">{emgData.summary_metrics?.cascade_affected || 0}</p>
-                        </div>
-                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Unchanged</p>
-                            <p className="text-2xl font-bold text-emerald-500">{emgData.summary_metrics?.unchanged || 0}</p>
-                        </div>
-                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Shifted</p>
-                            <p className="text-2xl font-bold text-blue-500">{emgData.summary_metrics?.shifted || 0}</p>
-                        </div>
-                        <div className="bg-slate-900 p-4 rounded border border-slate-700">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wider">Unscheduled</p>
-                            <p className="text-2xl font-bold text-slate-400">{emgData.summary_metrics?.unscheduled || 0}</p>
-                        </div>
-                    </div>
-
-                    {emgData.summary_metrics?.cascade_affected > 0 ? (
-                        <div className="mt-6 bg-slate-900/50 p-4 rounded border border-orange-500/20">
-                            <p className="text-sm font-bold text-orange-400 mb-2">Cascade Visualization</p>
-                            <div className="flex items-center gap-2 text-sm text-slate-300 flex-wrap">
-                                <span className="bg-rose-500 text-white px-2 py-1 rounded text-xs font-bold">Emergency</span>
-                                {emgData.summary_metrics.cascade_activities.map((act: string, i: number) => (
-                                    <React.Fragment key={i}>
-                                        <span className="text-slate-500">→</span>
-                                        <span className="bg-orange-500/20 text-orange-400 px-2 py-1 rounded text-xs font-bold">{act} shifted</span>
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="mt-6 bg-slate-900/50 p-4 rounded border border-emerald-500/20 text-center">
-                            <p className="text-sm font-bold text-emerald-400">No cascading movement detected.</p>
-                        </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-slate-800/50 p-12 rounded-xl border border-slate-700 border-dashed flex items-center justify-center h-full">
-                    <p className="text-slate-500">Submit an emergency block to visualize cascading schedule impacts.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {emgData && (
-                <div className="space-y-6">
-                    <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-                        <h3 className="text-xl font-bold text-white mb-6">Emergency Replanning Timeline</h3>
-                        <OperationalTimeline
-                            trains={simData.trains}
-                            maintenance={simData.maintenance}
-                            sections={simData.sections}
-                            emgData={emgData}
-                        />
-                    </div>
-
-                    {(emgData.actions?.length > 0) && (
-                        <div>
-                            <h3 className="text-xl font-bold text-white mb-4">Replanning Decision Explanations</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                {emgData.after_schedule.filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
-                                    <DecisionCard key={`emg-sched-${i}`} req={req} />
-                                ))}
-                                {emgData.unscheduled_requests?.map((req: any, i: number) => (
-                                    <DecisionCard key={`emg-unsched-${i}`} req={req} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "demo" && (
-          <div className="h-[800px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <DemoWizard />
-          </div>
-        )}
-
       </main>
     </div>
   );

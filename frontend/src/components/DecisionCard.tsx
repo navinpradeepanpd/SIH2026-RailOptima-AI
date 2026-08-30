@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, AlertCircle, Info, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, ShieldAlert, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 
 interface DecisionExplanation {
     decision: string;
@@ -28,62 +28,106 @@ export default function DecisionCard({ req }: { req: any }) {
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    const steps = [
+        {
+            label: "REQUESTED",
+            icon: Clock,
+            color: "text-[var(--text-secondary)]",
+            dotColor: "bg-[var(--text-muted)]",
+            content: (
+                <span className="font-mono text-sm">
+                    {formatTime(exp.original_start)} <ArrowRight size={12} className="inline mx-1 text-[var(--text-muted)]" /> {formatTime(exp.original_end)}
+                </span>
+            )
+        },
+        {
+            label: "WHY",
+            icon: AlertCircle,
+            color: "text-amber-400",
+            dotColor: "bg-amber-400",
+            content: (
+                <span className="text-sm text-[var(--text-secondary)]">
+                    {exp.conflict_ids.length > 0
+                        ? `Conflicts with: ${exp.conflict_ids.join(", ")} on ${exp.affected_section}${exp.track ? ` (${exp.track})` : ''}`
+                        : exp.reason || "No feasible window found within the planning horizon."}
+                </span>
+            )
+        },
+        {
+            label: "CONSTRAINT",
+            icon: ShieldAlert,
+            color: "text-indigo-400",
+            dotColor: "bg-indigo-400",
+            content: (
+                <span className="text-sm text-[var(--text-secondary)]">{exp.constraint}</span>
+            )
+        },
+        {
+            label: "DECISION",
+            icon: Zap,
+            color: isUnscheduled ? "text-rose-400" : "text-cyan-400",
+            dotColor: isUnscheduled ? "bg-rose-400" : "bg-cyan-400",
+            content: isUnscheduled ? (
+                <span className="text-sm font-bold text-rose-400">Rejected — No feasible slot</span>
+            ) : (
+                <span className="font-mono text-sm font-bold text-cyan-400">
+                    {formatTime(exp.optimized_start)} <ArrowRight size={12} className="inline mx-1 text-[var(--text-muted)]" /> {formatTime(exp.optimized_end)}
+                    {exp.shift_duration != null && exp.shift_duration > 0 && (
+                        <span className="ml-2 text-xs text-[var(--text-muted)] font-sans">
+                            (+{exp.shift_duration}m shift)
+                        </span>
+                    )}
+                </span>
+            )
+        },
+        {
+            label: "IMPACT",
+            icon: isUnscheduled ? XCircle : CheckCircle,
+            color: isUnscheduled ? "text-rose-400" : "text-emerald-400",
+            dotColor: isUnscheduled ? "bg-rose-400" : "bg-emerald-400",
+            content: (
+                <span className={`text-sm ${isUnscheduled ? 'text-rose-300' : 'text-emerald-300'}`}>{exp.impact}</span>
+            )
+        },
+    ];
+
     return (
-        <div className={`bg-slate-800 p-5 rounded-xl border ${isUnscheduled ? 'border-rose-500/30' : 'border-blue-500/30'} flex flex-col gap-4 shadow-lg`}>
-            <div className="flex items-center gap-2 border-b border-slate-700 pb-3">
-                {isUnscheduled ? <XCircle className="text-rose-400" size={20} /> : <Info className="text-blue-400" size={20} />}
-                <h4 className={`font-bold ${isUnscheduled ? 'text-rose-400' : 'text-blue-400'}`}>
-                    {isUnscheduled ? 'WHY NOT SCHEDULED' : 'WHY'}
-                </h4>
-                <span className="ml-auto text-sm font-mono bg-slate-900 px-2 py-1 rounded text-slate-300">
+        <div className={`glass-panel interactive-card p-5 ${isUnscheduled ? 'glow-border-rose' : 'accent-left-cyan'}`}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    {isUnscheduled
+                        ? <XCircle size={16} className="text-rose-400" />
+                        : <CheckCircle size={16} className="text-cyan-400" />
+                    }
+                    <span className={`text-xs font-bold uppercase tracking-wider ${isUnscheduled ? 'text-rose-400' : 'text-cyan-400'}`}>
+                        {isUnscheduled ? 'Rejected' : 'Scheduled'}
+                    </span>
+                </div>
+                <span className="text-xs font-mono bg-[var(--bg-deep)] px-2.5 py-1 rounded text-[var(--text-secondary)] border border-[var(--border-subtle)]">
                     {req.request_id}
                 </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-slate-900/50 p-3 rounded border border-slate-700">
-                    <p className="text-slate-400 font-bold mb-1 text-xs">REQUESTED SLOT</p>
-                    <div className="flex items-center gap-2 text-slate-200">
-                        {formatTime(exp.original_start)} <ArrowRight size={14} className="text-slate-500" /> {formatTime(exp.original_end)}
-                    </div>
-                </div>
-                
-                <div className="bg-slate-900/50 p-3 rounded border border-slate-700">
-                    <p className="text-slate-400 font-bold mb-1 text-xs">DECISION</p>
-                    <div className="flex items-center gap-2 text-emerald-400 font-bold">
-                        {isUnscheduled ? (
-                           <span className="text-rose-400">Rejected</span>
-                        ) : (
-                           <>{formatTime(exp.optimized_start)} <ArrowRight size={14} className="text-slate-500" /> {formatTime(exp.optimized_end)}</>
-                        )}
-                    </div>
-                </div>
-            </div>
+            {/* Vertical Stepper */}
+            <div className="relative pl-6">
+                {/* Connecting line */}
+                <div className={`absolute left-[7px] top-2 bottom-2 w-px bg-gradient-to-b from-[var(--text-muted)] via-[var(--border-active)] ${isUnscheduled ? 'to-rose-400/50' : 'to-emerald-400/50'}`} />
 
-            <div className="space-y-3 mt-2">
-                <div>
-                    <p className="text-slate-400 text-xs font-bold mb-1">WHY</p>
-                    <p className="text-slate-300 text-sm flex items-center gap-2">
-                        <AlertCircle size={14} className="text-orange-400" />
-                        {exp.conflict_ids.length > 0 ? `Conflicts with: ${exp.conflict_ids.join(", ")} on ${exp.affected_section}${exp.track ? ` (${exp.track})` : ''}` : exp.reason || "No feasible window found within the planning horizon."}
-                    </p>
-                </div>
+                {steps.map((step, i) => (
+                    <div key={i} className="relative flex items-start gap-3 mb-4 last:mb-0 animate-fade-in" style={{ animationDelay: `${i * 80}ms` }}>
+                        {/* Dot */}
+                        <div className={`absolute -left-6 top-0.5 w-[15px] h-[15px] rounded-full border-2 border-[var(--bg-surface)] ${step.dotColor} shrink-0 z-10`} />
 
-                <div>
-                    <p className="text-slate-400 text-xs font-bold mb-1">CONSTRAINT</p>
-                    <p className="text-slate-300 text-sm flex items-center gap-2">
-                        <ShieldAlert size={14} className="text-slate-400" />
-                        {exp.constraint}
-                    </p>
-                </div>
-                
-                <div>
-                    <p className="text-slate-400 text-xs font-bold mb-1">IMPACT</p>
-                    <p className="text-emerald-400 text-sm flex items-center gap-2">
-                        <CheckCircle size={14} className={isUnscheduled ? "text-rose-400" : "text-emerald-400"} />
-                        <span className={isUnscheduled ? "text-rose-300" : "text-emerald-300"}>{exp.impact}</span>
-                    </p>
-                </div>
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                            <p className={`text-[10px] font-bold uppercase tracking-[0.12em] mb-0.5 ${step.color}`}>
+                                {step.label}
+                            </p>
+                            <div className="leading-relaxed">{step.content}</div>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );

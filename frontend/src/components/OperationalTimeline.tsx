@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AlertCircle, ArrowRight, ShieldAlert, XCircle, Info, Clock, CheckCircle } from 'lucide-react';
+import { AlertCircle, ShieldAlert, XCircle, Info, Clock, CheckCircle, Train, Wrench } from 'lucide-react';
 import DecisionCard from './DecisionCard';
 
 interface TimelineProps {
@@ -16,11 +16,10 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
   // 1. Determine active maintenance set
-  // If we have optData, the active maintenance is scheduled_requests
   const activeMaint = optData ? optData.scheduled_requests : maintenance;
   const unscheduledMaint = optData ? optData.unscheduled_requests : [];
 
-  // 2. Compute min and max times to define the bounds of the timeline
+  // 2. Compute min and max times
   const { minTime, maxTime, totalDurationMs } = useMemo(() => {
     let minT = Infinity;
     let maxT = -Infinity;
@@ -55,12 +54,10 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
     }
 
     if (minT === Infinity) {
-      // Default fallback
       const now = Date.now();
       return { minTime: now, maxTime: now + 3600000, totalDurationMs: 3600000 };
     }
 
-    // Add a 30 min buffer on each side for visualization padding
     minT -= 30 * 60000;
     maxT += 30 * 60000;
     const duration = maxT - minT;
@@ -72,11 +69,10 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
     if (!startIso || !endIso) return { left: '0%', width: '0%' };
     const st = new Date(startIso).getTime();
     const et = new Date(endIso).getTime();
-    
+
     let leftPct = ((st - minTime) / totalDurationMs) * 100;
     let widthPct = ((et - st) / totalDurationMs) * 100;
 
-    // Constrain to 0-100 for safety
     if (leftPct < 0) {
       widthPct += leftPct;
       leftPct = 0;
@@ -91,18 +87,18 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
     };
   };
 
-  // 3. Generate Time Axis Ticks (every hour)
+  // 3. Time Axis Ticks
   const timeTicks = useMemo(() => {
     const ticks = [];
     const startHour = new Date(minTime);
     startHour.setMinutes(0, 0, 0);
     let current = startHour.getTime();
-    
+
     while (current <= maxTime) {
       if (current >= minTime) {
         ticks.push(current);
       }
-      current += 3600000; // +1 hour
+      current += 3600000;
     }
     return ticks;
   }, [minTime, maxTime]);
@@ -110,8 +106,7 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
   // 4. Group data by Section -> Track
   const groupedData = useMemo(() => {
     const map = new Map<string, Map<string, { trains: any[], maint: any[], conflicts: any[] }>>();
-    
-    // Ensure all sections are in the map
+
     sections.forEach(s => {
       const trackMap = new Map();
       trackMap.set("Unknown", { trains: [], maint: [], conflicts: [] });
@@ -133,12 +128,10 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
       return trackMap.get(trackKey)!;
     };
 
-    // If emgData has after_schedule, we should render THAT as active maintenance and mock train
     let displayTrains = trains;
     let displayMaint = activeMaint;
 
     if (emgData && emgData.after_schedule) {
-        // Find emergency block
         const emgBlock = emgData.after_schedule.find((r: any) => r.status === "Emergency Scheduled");
         displayTrains = [...trains, {
             train_id: emgBlock?.request_id || "EMG",
@@ -159,14 +152,41 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
     return map;
   }, [trains, activeMaint, conflicts, sections, emgData]);
 
-  // Helper to format time
   const formatTime = (iso: string) => iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      
-      {/* NETWORK OVERVIEW SUMMARY */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-700">
+    <div className="flex flex-col gap-5 w-full">
+
+      {/* ── LEGEND ── */}
+      <div className="flex items-center gap-4 text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded-sm bg-gradient-to-r from-blue-500 to-blue-600 border border-blue-400/50" />
+          <span>Train</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded-sm bg-gradient-to-r from-emerald-500 to-emerald-600 border border-emerald-400/50" />
+          <span>Maintenance (Scheduled)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded-sm bg-gradient-to-r from-amber-500 to-orange-600 border border-orange-400/50" />
+          <span>Maintenance (Pending)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded-sm border-2 border-dashed border-[var(--text-muted)]" />
+          <span>Original Position</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded-sm bg-rose-500/40 border border-rose-400/60 conflict-hatch" />
+          <span>Conflict Zone</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded-sm bg-rose-600 border border-rose-400 animate-dot-pulse" />
+          <span>Emergency</span>
+        </div>
+      </div>
+
+      {/* ── SECTION STATUS CHIPS ── */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700">
         {Array.from(groupedData.entries()).map(([secId, trackMap]) => {
           let hasConflict = false;
           let hasEmergency = false;
@@ -178,33 +198,40 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
           const isHighlighted = highlightSectionId === secId;
 
           return (
-            <div key={secId} className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg border ${isHighlighted ? 'bg-indigo-900/40 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.3)]' : hasEmergency ? 'bg-rose-900/20 border-rose-500/50' : hasConflict ? 'bg-orange-900/20 border-orange-500/50' : 'bg-slate-800 border-slate-700'}`}>
-              {hasEmergency ? <AlertCircle size={14} className="text-rose-500 animate-pulse"/> : hasConflict ? <AlertCircle size={14} className="text-orange-500"/> : <CheckCircle size={14} className="text-emerald-500"/>}
+            <div key={secId} className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200 ${
+              isHighlighted ? 'bg-indigo-900/30 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.2)]' :
+              hasEmergency ? 'bg-rose-950/30 border-rose-500/30 animate-border-pulse' :
+              hasConflict ? 'bg-amber-950/20 border-amber-500/30' :
+              'bg-[var(--bg-surface)] border-[var(--border-subtle)]'
+            }`}>
+              {hasEmergency ? <AlertCircle size={13} className="text-rose-400 animate-dot-pulse"/> :
+               hasConflict ? <AlertCircle size={13} className="text-amber-400"/> :
+               <CheckCircle size={13} className="text-emerald-400"/>}
               <div className="flex flex-col">
-                <span className={`text-xs font-bold ${hasEmergency ? 'text-rose-400' : hasConflict ? 'text-orange-400' : 'text-slate-300'}`}>{secId}</span>
-                <span className="text-[10px] text-slate-500 uppercase">{secName}</span>
+                <span className={`text-xs font-bold ${hasEmergency ? 'text-rose-400' : hasConflict ? 'text-amber-400' : 'text-[var(--text-secondary)]'}`}>{secId}</span>
+                <span className="text-[10px] text-[var(--text-muted)] uppercase">{secName}</span>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* TIMELINE CONTAINER */}
-      <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl relative flex flex-col">
-        
+      {/* ── TIMELINE CONTAINER ── */}
+      <div className="glass-panel-elevated overflow-hidden relative flex flex-col">
+
         {/* TIME AXIS HEADER */}
-        <div className="h-10 bg-slate-800 border-b border-slate-700 relative w-full flex items-end pb-1 overflow-hidden">
-          {/* Label spacer */}
-          <div className="w-48 shrink-0 border-r border-slate-700 h-full flex items-center px-4 bg-slate-800/80 z-10 backdrop-blur">
-             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest"><Clock size={12} className="inline mr-1 mb-0.5" /> Time Axis</span>
+        <div className="h-10 bg-[var(--bg-deep)] border-b border-[var(--border-subtle)] relative w-full flex items-end pb-1 overflow-hidden">
+          <div className="w-44 shrink-0 border-r border-[var(--border-subtle)] h-full flex items-center px-4 bg-[var(--bg-deep)] z-10 sticky left-0">
+             <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-[0.12em] flex items-center gap-1.5">
+               <Clock size={14} /> Time Axis
+             </span>
           </div>
-          {/* Axis Track */}
-          <div className="flex-1 relative h-full">
+          <div className="flex-1 relative h-full min-w-[800px]">
             {timeTicks.map(tick => {
               const left = ((tick - minTime) / totalDurationMs) * 100;
               return (
-                <div key={tick} className="absolute h-full border-l border-slate-600/50" style={{ left: `${left}%` }}>
-                  <span className="text-[10px] font-bold text-slate-400 ml-1 absolute bottom-1">{new Date(tick).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</span>
+                <div key={tick} className="absolute h-full border-l border-[var(--border-subtle)]" style={{ left: `${left}%` }}>
+                  <span className="text-xs font-bold text-[var(--text-muted)] ml-1.5 absolute bottom-1 font-mono">{new Date(tick).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</span>
                 </div>
               );
             })}
@@ -212,12 +239,12 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
         </div>
 
         {/* SCROLLABLE TRACKS */}
-        <div className="overflow-y-auto max-h-[600px] flex flex-col relative w-full">
+        <div className="overflow-x-auto">
+          <div className="overflow-y-auto max-h-[550px] flex flex-col relative w-full min-w-[800px]">
           {Array.from(groupedData.entries()).map(([secId, trackMap]) => {
             const secInfo = sections.find(s => s.section_id === secId);
             const isHighlighted = highlightSectionId === secId;
 
-            // Only render tracks that have activities OR are part of the highlighted section
             const tracksToRender = Array.from(trackMap.entries()).filter(([trk, data]) => {
                 return data.trains.length > 0 || data.maint.length > 0 || data.conflicts.length > 0 || isHighlighted;
             });
@@ -225,27 +252,27 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
             if (tracksToRender.length === 0) return null;
 
             return (
-              <div key={secId} className={`flex flex-col border-b border-slate-800 transition-colors ${isHighlighted ? 'bg-indigo-900/10' : ''}`}>
-                {/* SECTION HEADER BAR */}
-                <div className="bg-slate-800/50 px-4 py-1 border-y border-slate-800 flex justify-between items-center sticky left-0 z-10">
-                   <span className="text-xs font-bold text-emerald-400">{secInfo?.name || secId}</span>
+              <div key={secId} className={`flex flex-col border-b border-[var(--border-subtle)] transition-colors ${isHighlighted ? 'bg-indigo-950/10' : ''}`}>
+                {/* SECTION HEADER */}
+                <div className="bg-[var(--bg-elevated)] px-4 py-1.5 border-y border-[var(--border-subtle)] flex justify-between items-center sticky left-0 z-10 w-full min-w-max">
+                   <span className="text-xs font-bold text-cyan-400 tracking-wide">{secInfo?.name || secId}</span>
                 </div>
 
-                {tracksToRender.map(([trk, data], idx) => (
-                  <div key={`${secId}-${trk}`} className="flex relative min-h-[60px] border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
-                    
+                {tracksToRender.map(([trk, data]) => (
+                  <div key={`${secId}-${trk}`} className="flex relative min-h-[56px] border-b border-[var(--border-subtle)] hover:bg-[var(--bg-hover)] transition-colors group">
+
                     {/* LEFT LABEL */}
-                    <div className="w-48 shrink-0 bg-slate-900 border-r border-slate-700 p-3 flex flex-col justify-center relative z-10">
-                       <span className="text-sm font-bold text-slate-200">{secId}</span>
-                       <span className="text-xs font-mono text-slate-500">{trk !== "Unknown" ? trk : "Any Track"}</span>
+                    <div className="w-44 shrink-0 bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] p-3 flex flex-col justify-center relative z-10 sticky left-0">
+                       <span className="text-sm font-bold text-[var(--text-primary)]">{secId}</span>
+                       <span className="text-xs font-mono text-[var(--text-muted)]">{trk !== "Unknown" ? trk : "Any Track"}</span>
                     </div>
 
                     {/* ACTIVITY LANE */}
-                    <div className="flex-1 relative overflow-hidden bg-[url('/grid-pattern.svg')]">
-                       {/* Background grid lines matching ticks */}
+                    <div className="flex-1 relative overflow-hidden">
+                       {/* Grid lines */}
                        {timeTicks.map(tick => {
                          const left = ((tick - minTime) / totalDurationMs) * 100;
-                         return <div key={tick} className="absolute h-full border-l border-slate-700/30" style={{ left: `${left}%` }} />
+                         return <div key={tick} className="absolute h-full border-l border-[var(--border-subtle)]" style={{ left: `${left}%`, opacity: 0.4 }} />;
                        })}
 
                        {/* TRAINS */}
@@ -253,14 +280,19 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
                          const { left, width } = getPosition(t.planned_start, t.planned_end);
                          const isEmg = t.isEmergency;
                          return (
-                           <div 
-                             key={t.train_id} 
+                           <div
+                             key={t.train_id}
                              onClick={() => setSelectedItem({ type: 'train', data: t })}
-                             className={`absolute top-2 h-6 rounded-sm border cursor-pointer hover:brightness-125 transition-all overflow-hidden flex items-center px-2 ${isEmg ? 'bg-rose-600/80 border-rose-400 z-20 shadow-[0_0_10px_rgba(225,29,72,0.6)]' : 'bg-blue-600/80 border-blue-400'}`}
+                             className={`absolute top-1.5 h-[22px] rounded cursor-pointer hover:brightness-125 transition-all overflow-hidden flex items-center px-2 gap-1 ${
+                               isEmg
+                                 ? 'bg-gradient-to-r from-rose-600 to-rose-700 border border-rose-400/80 z-20 shadow-[0_0_12px_rgba(244,63,94,0.5)] animate-border-pulse'
+                                 : 'bg-gradient-to-r from-blue-500/90 to-blue-600/90 border border-blue-400/40'
+                             }`}
                              style={{ left, width }}
                              title={`Train ${t.train_id} (${t.train_type})\n${formatTime(t.planned_start)} - ${formatTime(t.planned_end)}`}
                            >
-                             <span className="text-[10px] font-bold text-white truncate drop-shadow-md">{t.train_id} {isEmg && " (EMG)"}</span>
+                             <Train size={12} className="text-white/80 shrink-0" />
+                             <span className="text-xs font-bold text-white truncate drop-shadow">{t.train_id}{isEmg && " (EMG)"}</span>
                            </div>
                          );
                        })}
@@ -271,39 +303,44 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
                          const actualEnd = m.end_time || m.original_end;
                          const { left, width } = getPosition(actualStart, actualEnd);
                          const isShifted = m.shifted;
-                         
+
                          return (
                            <React.Fragment key={m.request_id}>
-                             {/* Ghost / Shift Line */}
+                             {/* Ghost */}
                              {isShifted && m.original_start && (
-                                <div 
-                                    className="absolute top-9 h-6 border-2 border-dashed border-slate-600/50 rounded-sm flex items-center justify-center opacity-50"
+                                <div
+                                    className="absolute top-8 h-[22px] border-2 border-dashed border-rose-400/50 rounded flex items-center justify-center opacity-60"
                                     style={getPosition(m.original_start, m.original_end)}
                                 >
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase">Original</span>
+                                    <span className="text-xs text-rose-300 font-bold uppercase px-1 truncate">Original</span>
                                 </div>
                              )}
 
                              {/* Actual Block */}
-                             <div 
+                             <div
                                onClick={() => setSelectedItem({ type: 'maintenance', data: m })}
-                               className={`absolute ${isShifted ? 'top-9' : 'top-9'} h-6 rounded-sm border cursor-pointer hover:brightness-125 transition-all overflow-hidden flex items-center px-2 ${m.status === 'Scheduled' ? 'bg-emerald-600/80 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'bg-orange-600/80 border-orange-400'}`}
+                               className={`absolute top-8 h-[22px] rounded cursor-pointer hover:brightness-125 transition-all overflow-hidden flex items-center px-2 gap-1 ${
+                                 m.status === 'Scheduled'
+                                   ? 'bg-gradient-to-r from-emerald-500/90 to-emerald-600/90 border border-emerald-400/40 shadow-[0_0_8px_rgba(52,211,153,0.15)]'
+                                   : 'bg-gradient-to-r from-amber-500/80 to-orange-600/80 border border-orange-400/40'
+                               }`}
                                style={{ left, width }}
                                title={`Maint ${m.request_id} (${m.department})\n${formatTime(actualStart)} - ${formatTime(actualEnd)}`}
                              >
-                               <span className="text-[10px] font-bold text-white truncate drop-shadow-md">{m.request_id}</span>
+                               <Wrench size={11} className="text-white/80 shrink-0" />
+                               <span className="text-xs font-bold text-white truncate drop-shadow">{m.request_id}</span>
                              </div>
 
                              {/* Shift Arrow */}
                              {isShifted && m.original_start && m.start_time && new Date(m.original_start) < new Date(m.start_time) && (
-                                <div 
-                                    className="absolute top-[42px] h-0.5 bg-emerald-500/50 flex items-center z-0"
-                                    style={{ 
-                                        left: getPosition(m.original_end, m.start_time).left, 
-                                        width: getPosition(m.original_end, m.start_time).width 
+                                <div
+                                    className="absolute top-[38px] h-0.5 bg-gradient-to-r from-cyan-400/30 to-cyan-400/60 flex items-center z-0"
+                                    style={{
+                                        left: getPosition(m.original_end, m.start_time).left,
+                                        width: getPosition(m.original_end, m.start_time).width
                                     }}
                                 >
-                                    <div className="w-2 h-2 border-t-2 border-r-2 border-emerald-500/80 rotate-45 absolute right-0 -translate-y-1/2 mt-[1px]"></div>
+                                    <div className="w-2 h-2 border-t-2 border-r-2 border-cyan-400/70 rotate-45 absolute right-0 -translate-y-1/2 mt-[1px]"></div>
                                 </div>
                              )}
                            </React.Fragment>
@@ -314,15 +351,15 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
                        {data.conflicts.map(c => {
                          const { left, width } = getPosition(c.overlap_start, c.overlap_end);
                          return (
-                           <div 
+                           <div
                              key={c.conflict_id}
                              onClick={() => setSelectedItem({ type: 'conflict', data: c })}
-                             className="absolute top-0 bottom-0 bg-rose-500/30 border-l-2 border-r-2 border-rose-500 z-30 cursor-pointer hover:bg-rose-500/50 transition-colors flex flex-col items-center justify-center"
+                             className="absolute top-0 bottom-0 conflict-hatch border-l-2 border-r-2 border-rose-500/60 z-30 cursor-pointer hover:bg-rose-500/20 transition-colors flex flex-col items-center justify-center"
                              style={{ left, width }}
                            >
                              {parseFloat(width) > 5 && (
-                               <div className="bg-rose-600 text-white text-[10px] font-bold px-1 py-0.5 rounded shadow-lg flex items-center gap-1">
-                                 <AlertCircle size={10} /> {c.overlap_duration_minutes}m
+                               <div className="bg-rose-600 text-white text-xs font-bold px-1.5 py-0.5 rounded shadow-lg flex items-center gap-1">
+                                 <AlertCircle size={11} /> {c.overlap_duration_minutes}m
                                </div>
                              )}
                            </div>
@@ -334,31 +371,32 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 
-      {/* UNSCHEDULED BLOCKS & SELECTED ITEM DETAILS */}
-      <div className="grid grid-cols-12 gap-6">
-          
+      {/* ── DETAILS PANEL ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
           {/* UNSCHEDULED LIST */}
           {unscheduledMaint.length > 0 && (
-            <div className="col-span-4 bg-rose-950/20 border border-rose-500/30 p-4 rounded-xl flex flex-col gap-3">
-              <h3 className="text-rose-400 font-bold flex items-center gap-2">
-                <XCircle size={16} /> Unscheduled / Rejected Blocks
+            <div className="lg:col-span-4 glass-panel p-4 glow-border-rose flex flex-col gap-3">
+              <h3 className="text-rose-400 font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                <XCircle size={14} /> Unscheduled / Rejected
               </h3>
-              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+              <div className="flex flex-col gap-2 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin">
                   {unscheduledMaint.map((m: any) => (
-                      <div 
-                        key={m.request_id} 
+                      <div
+                        key={m.request_id}
                         onClick={() => setSelectedItem({ type: 'maintenance', data: m })}
-                        className="bg-slate-900 border border-slate-700 p-3 rounded cursor-pointer hover:border-rose-500/50 transition-colors"
+                        className="bg-[var(--bg-deep)] border border-[var(--border-subtle)] p-3 rounded-lg cursor-pointer hover:border-rose-500/40 transition-colors"
                       >
                           <div className="flex justify-between items-center mb-1">
-                              <span className="font-bold text-slate-200">{m.request_id}</span>
-                              <span className="text-xs bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-bold">Unscheduled</span>
+                              <span className="font-bold text-sm text-[var(--text-primary)]">{m.request_id}</span>
+                              <span className="text-xs bg-rose-500/15 text-rose-400 px-2 py-0.5 rounded-full font-bold">Rejected</span>
                           </div>
-                          <span className="text-xs text-slate-400 font-mono block">{m.section} {m.track ? `(${m.track})` : ''}</span>
-                          <span className="text-xs text-slate-500">Requested: {formatTime(m.original_start)} → {formatTime(m.original_end)}</span>
+                          <span className="text-xs text-[var(--text-muted)] font-mono block">{m.section} {m.track ? `(${m.track})` : ''}</span>
+                          <span className="text-xs text-[var(--text-muted)]">Requested: {formatTime(m.original_start)} → {formatTime(m.original_end)}</span>
                       </div>
                   ))}
               </div>
@@ -366,59 +404,59 @@ export default function OperationalTimeline({ trains = [], maintenance = [], con
           )}
 
           {/* ITEM DETAILS PANEL */}
-          <div className={`${unscheduledMaint.length > 0 ? 'col-span-8' : 'col-span-12'}`}>
+          <div className={`${unscheduledMaint.length > 0 ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
             {selectedItem ? (
-                <div className="animate-in fade-in slide-in-from-bottom-2">
+                <div className="animate-slide-in-up">
                     {selectedItem.type === 'maintenance' && selectedItem.data.decision_explanation ? (
                         <DecisionCard req={selectedItem.data} />
                     ) : selectedItem.type === 'conflict' ? (
-                        <div className="bg-slate-800 p-5 rounded-xl border border-rose-500/50 flex flex-col gap-4 shadow-lg shadow-rose-900/10">
-                            <div className="flex items-center gap-2 border-b border-slate-700 pb-3">
-                                <ShieldAlert className="text-rose-500" size={20} />
-                                <h4 className="font-bold text-rose-400">DETECTED CONFLICT OVERLAP</h4>
-                                <span className="ml-auto text-sm font-mono bg-slate-900 px-2 py-1 rounded text-slate-300">
+                        <div className="glass-panel-elevated p-5 glow-border-rose flex flex-col gap-4">
+                            <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-3">
+                                <ShieldAlert className="text-rose-400" size={18} />
+                                <h4 className="font-bold text-rose-400 text-sm uppercase tracking-wider">Detected Conflict</h4>
+                                <span className="ml-auto text-xs font-mono bg-[var(--bg-deep)] px-2 py-1 rounded text-[var(--text-secondary)] border border-[var(--border-subtle)]">
                                     {selectedItem.data.conflict_id}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-slate-900 p-4 rounded border border-slate-700">
-                                    <p className="text-slate-400 text-xs font-bold mb-2">ACTIVITIES INVOLVED</p>
-                                    <p className="font-bold text-slate-200">{selectedItem.data.activity_1}</p>
-                                    <p className="text-xs text-slate-500 mb-2">{selectedItem.data.activity_1_type}</p>
-                                    <p className="font-bold text-slate-200">{selectedItem.data.activity_2}</p>
-                                    <p className="text-xs text-slate-500">{selectedItem.data.activity_2_type}</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-[var(--bg-deep)] p-4 rounded-lg border border-[var(--border-subtle)]">
+                                    <p className="text-[var(--text-muted)] text-xs font-bold mb-2 uppercase tracking-wider">Activities Involved</p>
+                                    <p className="font-bold text-sm text-[var(--text-primary)]">{selectedItem.data.activity_1}</p>
+                                    <p className="text-xs text-[var(--text-muted)] mb-2">{selectedItem.data.activity_1_type}</p>
+                                    <p className="font-bold text-sm text-[var(--text-primary)]">{selectedItem.data.activity_2}</p>
+                                    <p className="text-xs text-[var(--text-muted)]">{selectedItem.data.activity_2_type}</p>
                                 </div>
-                                <div className="bg-slate-900 p-4 rounded border border-slate-700 flex flex-col justify-between">
+                                <div className="bg-[var(--bg-deep)] p-4 rounded-lg border border-[var(--border-subtle)] flex flex-col justify-between">
                                     <div>
-                                        <p className="text-slate-400 text-xs font-bold mb-2">OVERLAP TIMEFRAME</p>
-                                        <p className="text-emerald-400 font-bold">{formatTime(selectedItem.data.overlap_start)} → {formatTime(selectedItem.data.overlap_end)}</p>
-                                        <p className="text-sm text-slate-300 mt-1">{selectedItem.data.overlap_duration_minutes} minutes duration</p>
+                                        <p className="text-[var(--text-muted)] text-xs font-bold mb-2 uppercase tracking-wider">Overlap Window</p>
+                                        <p className="text-cyan-400 font-bold font-mono text-sm">{formatTime(selectedItem.data.overlap_start)} → {formatTime(selectedItem.data.overlap_end)}</p>
+                                        <p className="text-sm text-[var(--text-secondary)] mt-1">{selectedItem.data.overlap_duration_minutes} minutes</p>
                                     </div>
                                     <div className="mt-3">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${selectedItem.data.severity === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-orange-500 text-white'}`}>
-                                            {selectedItem.data.severity} SEVERITY
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${selectedItem.data.severity === 'CRITICAL' ? 'bg-rose-500/15 text-rose-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                                            {selectedItem.data.severity}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-slate-900/50 p-3 rounded border border-slate-700">
-                                <p className="text-slate-400 text-xs font-bold mb-1">REASON</p>
-                                <p className="text-slate-300 text-sm">{selectedItem.data.reason}</p>
+                            <div className="bg-[var(--bg-deep)] p-3 rounded-lg border border-[var(--border-subtle)]">
+                                <p className="text-[var(--text-muted)] text-xs font-bold mb-1 uppercase tracking-wider">Reason</p>
+                                <p className="text-sm text-[var(--text-secondary)]">{selectedItem.data.reason}</p>
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg flex items-center gap-4">
-                            <Info size={24} className="text-blue-400" />
+                        <div className="glass-panel p-5 flex items-center gap-4">
+                            <Info size={20} className="text-cyan-400 shrink-0" />
                             <div>
-                                <h4 className="font-bold text-white uppercase">{selectedItem.type} Details</h4>
-                                <p className="text-slate-400 text-sm text-wrap break-all">{JSON.stringify(selectedItem.data)}</p>
+                                <h4 className="font-bold text-[var(--text-primary)] uppercase text-sm">{selectedItem.type} Details</h4>
+                                <p className="text-[var(--text-muted)] text-xs text-wrap break-all mt-1">{JSON.stringify(selectedItem.data)}</p>
                             </div>
                         </div>
                     )}
                 </div>
             ) : (
-                <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 border-dashed flex items-center justify-center h-full min-h-[150px]">
-                    <p className="text-slate-500">Click on any train, maintenance block, or conflict in the timeline to view exact details and AI decisions.</p>
+                <div className="glass-panel border-dashed p-8 flex items-center justify-center h-full min-h-[120px]">
+                    <p className="text-[var(--text-muted)] text-sm">Click on any train, maintenance block, or conflict in the timeline to view details and AI decisions.</p>
                 </div>
             )}
           </div>
