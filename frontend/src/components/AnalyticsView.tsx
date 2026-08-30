@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, TrendingUp, CheckCircle, AlertTriangle } from 'lucide-react';
+import OperationalTimeline from './OperationalTimeline';
 
 interface AnalyticsProps {
   simData: any;
@@ -120,6 +121,18 @@ export default function AnalyticsView({ simData, conflictData, optData }: Analyt
           </div>
         </div>
 
+      </div>
+
+      {/* TIMELINE INTEGRATION */}
+      <div className="mt-8">
+        <h2 className="text-xl font-bold text-white mb-6 border-b border-slate-700 pb-3">Operational Timeline (After Optimization)</h2>
+        <OperationalTimeline 
+          trains={simData?.trains || []} 
+          maintenance={simData?.maintenance || []} 
+          sections={simData?.sections || []} 
+          conflicts={optData?.conflicts_after?.conflicts || []} 
+          optData={optData} 
+        />
       </div>
     </div>
   );

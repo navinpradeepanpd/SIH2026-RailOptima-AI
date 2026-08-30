@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, ArrowLeft, RotateCcw, AlertTriangle, AlertCircle, CheckCircle, LayoutDashboard } from 'lucide-react';
 import { getApiUrl } from '../lib/api';
-import TimelineView from './TimelineView';
+import OperationalTimeline from './OperationalTimeline';
 import DataTable from './DataTable';
 import DecisionCard from './DecisionCard';
 
@@ -146,7 +146,9 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                     <p className="text-2xl font-bold text-orange-400">{simData.maintenance?.length || 0}</p>
                 </div>
             </div>
-            <TimelineView trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} />
+            <div className="mt-8">
+              <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} />
+            </div>
           </div>
         )}
 
@@ -184,6 +186,9 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                 { header: "Severity", accessor: "severity", render: (v: string) => <span className={`px-2 py-1 rounded text-xs font-bold ${v === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-orange-500 text-white'}`}>{v}</span> },
                 { header: "Reason", accessor: "reason", render: (v: string) => <span className="text-xs text-slate-300">{v}</span> }
             ]} data={conflictData.conflicts || []} />
+            <div className="mt-8">
+              <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} conflicts={conflictData.conflicts || []} />
+            </div>
           </div>
         )}
 
@@ -217,6 +222,9 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                 { header: "Optimized Start", accessor: "start_time", render: (val: string) => <span className="text-emerald-400 font-mono">{val ? new Date(val).toLocaleString() : "Unscheduled"}</span> },
                 { header: "Reason", accessor: "reason", render: (val: string) => val ? val : "N/A" }
             ]} data={optData.scheduled_requests || []} />
+            <div className="mt-8">
+              <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} conflicts={optData.conflicts_after?.conflicts || []} optData={optData} />
+            </div>
           </div>
         )}
 
@@ -260,6 +268,9 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                  </div>
                </div>
              </div>
+             <div className="mt-8">
+               <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} optData={optData} highlightSectionId="SEC_1" />
+             </div>
           </div>
         )}
 
@@ -282,6 +293,9 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
                    ))}
                  </div>
                )}
+             </div>
+             <div className="mt-8">
+               <OperationalTimeline trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} optData={optData} emgData={emgData} highlightSectionId="SEC_1" />
              </div>
           </div>
         )}

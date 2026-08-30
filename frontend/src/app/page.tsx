@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, BarChart3, Calendar, Clock, Map, Play, Settings, ShieldAlert, Zap } from 'lucide-react';
 import { getApiUrl } from '../lib/api';
 import StatCard from '../components/StatCard';
-import TimelineView from '../components/TimelineView';
+import OperationalTimeline from '../components/OperationalTimeline';
 import DataTable from '../components/DataTable';
 import EmergencyForm from '../components/EmergencyForm';
 import AnalyticsView from '../components/AnalyticsView';
@@ -173,7 +173,7 @@ export default function Dashboard() {
               <StatCard title="Total Conflicts" value={conflictData?.summary_counts?.total || 0} icon={ShieldAlert} colorClass="text-rose-400" trend={`${conflictData?.summary_counts?.CRITICAL || 0} Critical`} />
               <StatCard title="Block Utilization" value={optData?.summary_metrics?.utilized_block_hours ? `${optData.summary_metrics.utilized_block_hours}h` : '0h'} icon={Clock} colorClass="text-emerald-400" />
             </div>
-            <TimelineView trains={simData?.trains || []} maintenance={simData?.maintenance || []} sections={simData?.sections || []} />
+            <OperationalTimeline trains={simData?.trains || []} maintenance={simData?.maintenance || []} sections={simData?.sections || []} conflicts={conflictData?.conflicts || []} />
           </div>
         )}
 
