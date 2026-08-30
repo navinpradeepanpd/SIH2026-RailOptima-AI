@@ -15,12 +15,11 @@ class LiveTrainProvider(TrainDataProvider):
         self.api_key = os.environ.get("RAIL_LIVE_API_KEY")
         self.api_url = os.environ.get("RAIL_LIVE_API_URL", "https://api.indianrailways.gov.example/v1/trains")
         self.timeout = int(os.environ.get("RAIL_LIVE_API_TIMEOUT", "5"))
-        self.fallback_provider = SimulationProvider()
 
     def get_trains(self) -> List[Dict[str, Any]]:
         if not self.api_key:
-            logger.warning("No live API credentials found. Falling back to simulation data.")
-            return self.fallback_provider.get_trains()
+            logger.error("Live data provider is not configured.")
+            raise RuntimeError("Live data provider is not configured.")
         
         try:
             req = urllib.request.Request(self.api_url, headers={"Authorization": f"Bearer {self.api_key}"})
@@ -32,37 +31,42 @@ class LiveTrainProvider(TrainDataProvider):
                 
             now = datetime.now().isoformat()
             for t in data:
-                t["_data_source"] = "live"
-                t["_fetched_at"] = now
+                t["source"] = "Live RailOptima Provider"
+                t["mode"] = "live"
+                t["is_live"] = True
+                t["generated_at"] = now
+                t["last_updated"] = now
                 
             return data
             
         except urllib.error.URLError as e:
-            logger.error(f"Live API request failed: {e}. Falling back to simulation data.")
+            logger.error(f"Live API request failed: {e}.")
+            raise RuntimeError(f"Live API request failed: {e}.")
         except Exception as e:
-            logger.error(f"Error processing live API response: {e}. Falling back to simulation data.")
-            
-        return self.fallback_provider.get_trains()
+            logger.error(f"Error processing live API response: {e}.")
+            raise RuntimeError(f"Error processing live API response: {e}.")
 
     def get_maintenance(self) -> List[Dict[str, Any]]:
-        # Maintenance requests are internally generated, not pulled from live API
-        return self.fallback_provider.get_maintenance()
+        raise NotImplementedError("Live provider does not currently support fetching maintenance schedules.")
 
     def get_sections(self) -> List[Dict[str, Any]]:
-        # Sections are static network topology, not pulled from live API
-        return self.fallback_provider.get_sections()
+        raise NotImplementedError("Live provider does not currently support fetching sections.")
 
     def get_mode_info(self) -> Dict[str, Any]:
         if not self.api_key:
             return {
-                "mode": "simulation",
-                "source": "Simulated RailOptima Dataset (Live Fallback - No Credentials)",
-                "live_available": False
+                "mode": "live",
+                "provider": "live",
+                "live_ready": True,
+                "live_configured": False,
+                "message": "Live data provider is not configured."
             }
             
         return {
             "mode": "live",
-            "source": "Live RailOptima Provider",
-            "live_available": True
+            "provider": "live",
+            "live_ready": True,
+            "live_configured": True,
+            "message": "Connected to authorized live provider."
         }
 

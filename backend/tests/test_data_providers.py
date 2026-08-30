@@ -14,13 +14,14 @@ def test_simulation_provider():
     assert len(trains) > 0
     # Check if metadata fields are added
     for t in trains:
-        assert "_data_source" in t
-        assert t["_data_source"] == "simulation"
-        assert "_fetched_at" in t
+        assert "source" in t
+        assert t["source"] == "RailOptima Simulation"
+        assert "generated_at" in t
 
     mode_info = provider.get_mode_info()
     assert mode_info["mode"] == "simulation"
-    assert mode_info["live_available"] is False
+    assert mode_info["live_ready"] is True
+    assert mode_info["live_configured"] is False
 
 @patch.dict(os.environ, {"RAIL_LIVE_API_KEY": "dummy_key", "RAIL_LIVE_API_URL": "http://fake.api/trains"})
 @patch('urllib.request.urlopen')
@@ -36,12 +37,12 @@ def test_live_provider_success(mock_urlopen):
     mock_urlopen.assert_called_once()
     assert len(trains) == 1
     assert trains[0]["train_id"] == "L_123"
-    assert trains[0]["_data_source"] == "live"
-    assert "_fetched_at" in trains[0]
+    assert trains[0]["source"] == "Live RailOptima Provider"
+    assert "generated_at" in trains[0]
     
     mode_info = provider.get_mode_info()
     assert mode_info["mode"] == "live"
-    assert mode_info["live_available"] is True
+    assert mode_info["live_configured"] is True
 
 @patch.dict(os.environ, {"RAIL_LIVE_API_KEY": "dummy_key", "RAIL_LIVE_API_URL": "http://fake.api/trains"})
 @patch('urllib.request.urlopen')
@@ -49,11 +50,10 @@ def test_live_provider_failure_fallback(mock_urlopen):
     mock_urlopen.side_effect = urllib.error.URLError("Connection timed out")
     
     provider = LiveTrainProvider()
-    trains = provider.get_trains()
+    with pytest.raises(RuntimeError) as excinfo:
+        trains = provider.get_trains()
     
-    # Should fallback to simulation
-    assert len(trains) > 0
-    assert trains[0]["_data_source"] == "simulation"
+    assert "Live API request failed" in str(excinfo.value)
 
 @patch.dict(os.environ, {"RAIL_LIVE_API_KEY": "dummy_key", "RAIL_LIVE_API_URL": "http://fake.api/trains"})
 @patch('urllib.request.urlopen')
@@ -64,11 +64,10 @@ def test_live_provider_malformed_fallback(mock_urlopen):
     mock_urlopen.return_value.__enter__.return_value = mock_response
 
     provider = LiveTrainProvider()
-    trains = provider.get_trains()
+    with pytest.raises(RuntimeError) as excinfo:
+        trains = provider.get_trains()
     
-    # Should fallback to simulation
-    assert len(trains) > 0
-    assert trains[0]["_data_source"] == "simulation"
+    assert "Error processing live API response" in str(excinfo.value)
 
 @patch.dict(os.environ, clear=True)
 def test_live_provider_no_credentials():
@@ -77,12 +76,11 @@ def test_live_provider_no_credentials():
         del os.environ["RAIL_LIVE_API_KEY"]
         
     provider = LiveTrainProvider()
-    trains = provider.get_trains()
+    with pytest.raises(RuntimeError) as excinfo:
+        trains = provider.get_trains()
     
-    # Should fallback to simulation without making API calls
-    assert len(trains) > 0
-    assert trains[0]["_data_source"] == "simulation"
+    assert "Live data provider is not configured" in str(excinfo.value)
     
     mode_info = provider.get_mode_info()
-    assert mode_info["mode"] == "simulation"
-    assert mode_info["live_available"] is False
+    assert mode_info["mode"] == "live"
+    assert mode_info["live_configured"] is False

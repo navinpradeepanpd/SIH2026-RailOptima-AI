@@ -33,7 +33,7 @@ export default function Dashboard() {
       fetch(getApiUrl("/api/conflicts")).then(r => { if (!r.ok) throw new Error("Failed to load conflicts"); return r.json(); }),
       fetch(getApiUrl("/api/maintenance/priorities")).then(r => { if (!r.ok) throw new Error("Failed to load priorities"); return r.json(); }),
       fetch(getApiUrl("/api/planning/weekly"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => { if (!r.ok) throw new Error("Failed to run weekly plan"); return r.json(); }),
-      fetch(getApiUrl("/api/data-mode")).then(r => { if (!r.ok) throw new Error("Failed to load data mode"); return r.json(); })
+      fetch(getApiUrl("/api/data-status")).then(r => { if (!r.ok) throw new Error("Failed to load data status"); return r.json(); })
     ]).then(([sim, conf, prio, opt, mode]) => {
       setSimData(sim);
       setConflictData(conf);
@@ -135,7 +135,17 @@ export default function Dashboard() {
               <h1 className="text-2xl font-black text-white tracking-tight leading-none">RAIL<span className="text-emerald-400">OPTIMA</span> AI</h1>
               {dataMode?.mode === "simulation" && (
                 <span className="text-[10px] uppercase font-bold text-orange-400 tracking-wider mt-1 flex items-center gap-1">
-                  <Activity size={10} /> SIMULATION MODE — Synthetic Railway Operations Data
+                  <Activity size={10} /> SIMULATION MODE — {dataMode.message || "Synthetic Railway Operations Data"}
+                </span>
+              )}
+              {dataMode?.mode === "live" && !dataMode?.live_configured && (
+                <span className="text-[10px] uppercase font-bold text-rose-500 tracking-wider mt-1 flex items-center gap-1">
+                  <AlertTriangle size={10} /> LIVE DATA UNAVAILABLE — {dataMode.message || "Provider not configured"}
+                </span>
+              )}
+              {dataMode?.mode === "live" && dataMode?.live_configured && (
+                <span className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider mt-1 flex items-center gap-1">
+                  <Activity size={10} /> LIVE MODE — {dataMode.message || "Authorized provider connected"}
                 </span>
               )}
             </div>

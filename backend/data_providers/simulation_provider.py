@@ -17,8 +17,11 @@ class SimulationProvider(TrainDataProvider):
         trains = self._load_data_file("trains.json")
         now = datetime.now().isoformat()
         for t in trains:
-            t["_data_source"] = "simulation"
-            t["_fetched_at"] = now
+            t["source"] = "RailOptima Simulation"
+            t["mode"] = "simulation"
+            t["is_live"] = False
+            t["generated_at"] = now
+            t["last_updated"] = now
         return trains
 
     def get_maintenance(self) -> List[Dict[str, Any]]:
@@ -30,6 +33,8 @@ class SimulationProvider(TrainDataProvider):
     def get_mode_info(self) -> Dict[str, Any]:
         return {
             "mode": "simulation",
-            "source": "Simulated RailOptima Dataset",
-            "live_available": False
+            "provider": "simulation",
+            "live_ready": True,
+            "live_configured": False,
+            "message": "Using deterministic simulation data."
         }

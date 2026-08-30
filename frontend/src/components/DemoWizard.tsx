@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, RotateCcw, AlertTriangle, AlertCircle, CheckCircle, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, ArrowLeft, RotateCcw, AlertTriangle, AlertCircle, CheckCircle, LayoutDashboard, Activity, Zap } from 'lucide-react';
 import { getApiUrl } from '../lib/api';
 import OperationalTimeline from './OperationalTimeline';
 import DataTable from './DataTable';
@@ -136,6 +136,15 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
           <div className="animate-in fade-in slide-in-from-bottom-4">
             <h3 className="text-xl font-bold text-white mb-2">Network Baseline</h3>
             <p className="text-slate-400 mb-6">Current snapshot of the railway network with active trains and pending, uncoordinated maintenance requests.</p>
+            <div className="bg-slate-800 p-6 rounded-lg border border-slate-700 mb-6 flex justify-between items-center text-xs font-bold text-center">
+                <div className="flex flex-col items-center gap-2 p-2 w-1/5"><div className="bg-orange-500/20 text-orange-400 p-2 rounded-full border border-orange-500/50"><LayoutDashboard size={20} /></div>DATA SOURCE</div>
+                <ArrowRight className="text-slate-600" size={16} />
+                <div className="flex flex-col items-center gap-2 p-2 w-1/5"><div className="bg-blue-500/20 text-blue-400 p-2 rounded-full border border-blue-500/50"><Activity size={20} /></div>NORMALIZED RAIL DATA</div>
+                <ArrowRight className="text-slate-600" size={16} />
+                <div className="flex flex-col items-center gap-2 p-2 w-1/5"><div className="bg-emerald-500/20 text-emerald-400 p-2 rounded-full border border-emerald-500/50"><Zap size={20} /></div>OPTIMIZATION ENGINE</div>
+                <ArrowRight className="text-slate-600" size={16} />
+                <div className="flex flex-col items-center gap-2 p-2 w-1/5"><div className="bg-purple-500/20 text-purple-400 p-2 rounded-full border border-purple-500/50"><AlertTriangle size={20} /></div>EMERGENCY INTELLIGENCE</div>
+            </div>
             <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-slate-800 p-4 rounded border border-slate-700">
                     <p className="text-sm text-slate-400">Active Trains</p>

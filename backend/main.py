@@ -21,19 +21,34 @@ def get_train_data():
     try:
         return data_provider.get_trains()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch train data: {e}")
+        raise HTTPException(status_code=503, detail=f"Failed to fetch train data: {e}")
 
 def get_maintenance_data():
     try:
         return data_provider.get_maintenance()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch maintenance data: {e}")
+        raise HTTPException(status_code=503, detail=f"Failed to fetch maintenance data: {e}")
 
 def get_sections_data():
     try:
         return data_provider.get_sections()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch sections data: {e}")
+        raise HTTPException(status_code=503, detail=f"Failed to fetch sections data: {e}")
+
+def validate_provider_data(trains, maintenance):
+    # Lightweight validation before optimization
+    if not isinstance(trains, list) or not isinstance(maintenance, list):
+        raise HTTPException(status_code=400, detail="Trains and maintenance data must be lists.")
+    for t in trains:
+        if "train_id" not in t or "planned_start" not in t or "planned_end" not in t:
+            raise HTTPException(status_code=400, detail=f"Train {t.get('train_id')} missing required fields.")
+        if t["planned_start"] > t["planned_end"]:
+            raise HTTPException(status_code=400, detail=f"Train {t['train_id']} has start > end.")
+    for m in maintenance:
+        if "request_id" not in m or "duration" not in m:
+            raise HTTPException(status_code=400, detail=f"Maintenance {m.get('request_id')} missing required fields.")
+        if m["duration"] < 0:
+            raise HTTPException(status_code=400, detail=f"Maintenance {m['request_id']} has negative duration.")
 
 app = FastAPI(title="RailOptima AI API", description="Backend for RailOptima AI Simulation")
 
@@ -61,12 +76,12 @@ def health_check():
         "data_mode": mode
     }
 
-@app.get("/api/data-mode")
-def get_data_mode():
+@app.get("/api/data-status")
+def get_data_status():
     try:
         return data_provider.get_mode_info()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch mode info: {e}")
+        raise HTTPException(status_code=503, detail=f"Failed to fetch mode info: {e}")
 
 @app.get("/api/trains")
 def get_trains():
@@ -96,6 +111,8 @@ def optimize_schedule(req: OptimizationRequest):
     trains = req.trains if req.trains is not None else get_train_data()
     maintenance = req.maintenance if req.maintenance is not None else get_maintenance_data()
     
+    validate_provider_data(trains, maintenance)
+    
     try:
         return run_optimization(
             trains, 
@@ -119,6 +136,8 @@ def planning_weekly(req: PlanningRequest):
     trains = req.trains if req.trains is not None else get_train_data()
     maintenance = req.maintenance if req.maintenance is not None else get_maintenance_data()
     
+    validate_provider_data(trains, maintenance)
+    
     start_dt = datetime.fromisoformat(req.start_date)
     end_dt = datetime.fromisoformat(req.end_date) if req.end_date else start_dt + timedelta(days=7)
     
@@ -131,6 +150,8 @@ def planning_weekly(req: PlanningRequest):
 def planning_monthly(req: PlanningRequest):
     trains = req.trains if req.trains is not None else get_train_data()
     maintenance = req.maintenance if req.maintenance is not None else get_maintenance_data()
+    
+    validate_provider_data(trains, maintenance)
     
     start_dt = datetime.fromisoformat(req.start_date)
     end_dt = datetime.fromisoformat(req.end_date) if req.end_date else start_dt + timedelta(days=30)
@@ -151,6 +172,8 @@ class EmergencyRequestPayload(BaseModel):
 def emergency_replan(req: EmergencyRequestPayload):
     trains = req.trains if req.trains is not None else get_train_data()
     maintenance = req.maintenance if req.maintenance is not None else get_maintenance_data()
+    
+    validate_provider_data(trains, maintenance)
     
     try:
         return replan_schedule(

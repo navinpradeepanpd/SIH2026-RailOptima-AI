@@ -62,7 +62,7 @@ def test_integration_full_pipeline():
     
     # G. Simulation fallback -> complete pipeline
     # The above tests naturally use the SimulationProvider because RAIL_DATA_MODE is not set to live.
-    mode_resp = client.get("/api/data-mode")
+    mode_resp = client.get("/api/data-status")
     assert mode_resp.status_code == 200
     assert mode_resp.json()["mode"] == "simulation"
 
@@ -78,10 +78,11 @@ def test_live_fallback_integration():
     from data_providers.live_train_provider import LiveTrainProvider
     provider = LiveTrainProvider()
     
-    # It should fallback to simulation because URL is fake and will fail
-    trains = provider.get_trains()
-    assert len(trains) > 0
-    assert trains[0]["_data_source"] == "simulation"
+    # It should raise RuntimeError because we removed silent fallbacks
+    with pytest.raises(RuntimeError) as excinfo:
+        trains = provider.get_trains()
+        
+    assert "Live API request failed" in str(excinfo.value)
     
     # Reset env vars
     del os.environ["RAIL_DATA_MODE"]
