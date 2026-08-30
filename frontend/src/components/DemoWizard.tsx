@@ -3,6 +3,7 @@ import { ArrowRight, ArrowLeft, RotateCcw, AlertTriangle, AlertCircle, CheckCirc
 import { getApiUrl } from '../lib/api';
 import TimelineView from './TimelineView';
 import DataTable from './DataTable';
+import DecisionCard from './DecisionCard';
 
 export default function DemoWizard({ onExit }: { onExit?: () => void }) {
   const [step, setStep] = useState(1);
@@ -21,10 +22,10 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
     "Conflict Detection",
     "Priority Analysis",
     "AI Optimization",
-    "Before vs After",
+    "Decision Explanations",
     "Emergency Disruption",
     "Automatic Replanning",
-    "Final Decision"
+    "Final Summary"
   ];
 
   const fetchStepData = async (targetStep: number) => {
@@ -199,26 +200,18 @@ export default function DemoWizard({ onExit }: { onExit?: () => void }) {
           </div>
         )}
 
-        {!loading && !error && step === 5 && conflictData && optData && (
+        {!loading && !error && step === 5 && optData && (
           <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-            <h3 className="text-xl font-bold text-white mb-2">Before vs After Comparison</h3>
-            <p className="text-slate-400 mb-6">Impact of AI scheduling on conflicts and utilization.</p>
+            <h3 className="text-xl font-bold text-white mb-2">WHY DID THE AI MOVE THESE BLOCKS?</h3>
+            <p className="text-slate-400 mb-6">Explore the exact reasons for each scheduling decision.</p>
             
-            <div className="grid grid-cols-2 gap-6">
-                <div className="bg-slate-800 p-6 rounded border border-rose-500/30">
-                    <h4 className="text-rose-400 font-bold mb-4">BEFORE OPTIMIZATION</h4>
-                    <p className="text-sm text-slate-400 mb-2">Conflicts:</p>
-                    <p className="text-3xl font-bold text-rose-500 mb-4">{conflictData.summary_counts?.total || 0}</p>
-                    <p className="text-sm text-slate-400 mb-2">Uncoordinated Requests:</p>
-                    <p className="text-3xl font-bold text-orange-400">{optData.summary_metrics?.total_maintenance_requests || 0}</p>
-                </div>
-                <div className="bg-slate-800 p-6 rounded border border-emerald-500/30">
-                    <h4 className="text-emerald-400 font-bold mb-4">AFTER OPTIMIZATION</h4>
-                    <p className="text-sm text-slate-400 mb-2">Conflicts Remaining:</p>
-                    <p className="text-3xl font-bold text-emerald-500 mb-4">{optData.conflicts_after?.total || 0}</p>
-                    <p className="text-sm text-slate-400 mb-2">Safely Scheduled:</p>
-                    <p className="text-3xl font-bold text-emerald-400">{optData.summary_metrics?.scheduled_requests || 0}</p>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+                {(optData?.scheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                    <DecisionCard key={`demo-sched-${i}`} req={req} />
+                ))}
+                {(optData?.unscheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                    <DecisionCard key={`demo-unsched-${i}`} req={req} />
+                ))}
             </div>
           </div>
         )}

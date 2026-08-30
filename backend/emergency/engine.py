@@ -80,11 +80,15 @@ def replan_schedule(emergency_request, trains, maintenance, horizon_start_str, h
         b_req = before_dict.get(req["request_id"])
         if b_req:
             if b_req["start_time"] != req["start_time"]:
-                action_str = f"Move {req['request_id']} to {req['start_time']} - {req['end_time']}"
+                shift_td = parse_time(req["start_time"]) - parse_time(b_req["start_time"])
+                shift_mins = int(shift_td.total_seconds() / 60)
+                action_str = f"Move {req['request_id']} to {parse_time(req['start_time']).strftime('%H:%M')} (Shifted {shift_mins}m)"
                 reason_str = f"Emergency request {emergency_request['request_id']} ({emergency_request['department']}) has higher safety priority."
                 actions.append({
                     "action": action_str,
-                    "reason": reason_str
+                    "reason": reason_str,
+                    "type": "SHIFTED",
+                    "request_id": req["request_id"]
                 })
         else:
             # It was unscheduled before, now scheduled?
@@ -98,7 +102,9 @@ def replan_schedule(emergency_request, trains, maintenance, horizon_start_str, h
             reason_str = f"No alternative window available due to Emergency {emergency_request['request_id']}."
             actions.append({
                 "action": action_str,
-                "reason": reason_str
+                "reason": reason_str,
+                "type": "UNSCHEDULED",
+                "request_id": req["request_id"]
             })
             
     return {

@@ -37,6 +37,15 @@ def test_optimization_resolves_conflict():
     
     # Train occupies 10 to 12. Earliest free window starting at or after 10:00 is 12:00.
     assert scheduled_mnt["start_time"] == "2026-09-01T12:00:00"
+    
+    # Assert decision explanation exists
+    assert "decision_explanation" in scheduled_mnt
+    explanation = scheduled_mnt["decision_explanation"]
+    assert explanation is not None
+    assert "TRN_1" in explanation["conflict_ids"]
+    assert explanation["shift_duration"] == 120
+    assert explanation["original_start"] == "2026-09-01T10:00:00"
+    assert explanation["optimized_start"] == "2026-09-01T12:00:00"
 
 def test_unscheduled_due_to_no_window():
     # Train occupies entire 24h horizon
@@ -65,6 +74,15 @@ def test_unscheduled_due_to_no_window():
     
     assert len(result["scheduled_requests"]) == 0
     assert len(result["unscheduled_requests"]) == 1
-    assert result["unscheduled_requests"][0]["status"] == "Unscheduled"
-    assert "No feasible" in result["unscheduled_requests"][0]["reason"]
-
+    
+    unscheduled = result["unscheduled_requests"][0]
+    assert unscheduled["status"] == "Unscheduled"
+    assert "No feasible" in unscheduled["reason"]
+    
+    # Assert decision explanation exists for rejection
+    assert "decision_explanation" in unscheduled
+    explanation = unscheduled["decision_explanation"]
+    assert explanation is not None
+    assert "TRN_1" in explanation["conflict_ids"]
+    assert explanation["optimized_start"] is None
+    assert "Reject" in explanation["decision"]

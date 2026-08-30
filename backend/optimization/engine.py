@@ -14,9 +14,9 @@ def get_free_windows(occupied_intervals, horizon_start, horizon_end):
         
     occupied_intervals.sort(key=lambda x: x[0])
     merged = []
-    current_start, current_end = occupied_intervals[0]
+    current_start, current_end = occupied_intervals[0][0], occupied_intervals[0][1]
     
-    for start, end in occupied_intervals[1:]:
+    for start, end, _, _ in occupied_intervals[1:]:
         if start <= current_end:
             current_end = max(current_end, end)
         else:
@@ -47,11 +47,18 @@ def find_feasible_slot(duration_td, requested_start, free_windows):
             return possible_start, possible_end
     return None, None
 
+def get_blocking_activities(requested_start, duration_td, occupied_intervals):
+    req_end = requested_start + duration_td
+    blockers = []
+    for start, end, act_id, act_type in occupied_intervals:
+        if start < req_end and end > requested_start:
+            blockers.append({"id": act_id, "type": act_type, "start": start.isoformat(), "end": end.isoformat()})
+    return blockers
+
 def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
     horizon_start = parse_time(horizon_start_str)
     horizon_end = parse_time(horizon_end_str)
     
-    # Run conflict detection before
     before_conflicts = detect_conflicts(trains, maintenance)["summary_counts"]
     scored_maintenance = calculate_priority(maintenance)
     
@@ -62,10 +69,9 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
         sec = t["section"]
         if sec not in section_occupancy:
             section_occupancy[sec] = []
-        # Add safety buffer to train occupancy
         train_start = parse_time(t["planned_start"]) - timedelta(minutes=SAFETY_BUFFER_MINUTES)
         train_end = parse_time(t["planned_end"]) + timedelta(minutes=SAFETY_BUFFER_MINUTES)
-        section_occupancy[sec].append((train_start, train_end))
+        section_occupancy[sec].append((train_start, train_end, t.get("train_id"), "Train"))
         
     scheduled_requests = []
     unscheduled_requests = []
@@ -76,6 +82,7 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
         duration_mins = req["duration"]
         duration_td = timedelta(minutes=duration_mins)
         requested_start = parse_time(req.get("start_time", req.get("original_start")))
+        req_end = requested_start + duration_td
         
         req["original_start"] = req.get("start_time", req.get("original_start"))
         req["original_end"] = req.get("end_time", req.get("original_end"))
@@ -84,6 +91,9 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
         free_windows = get_free_windows(occupied, horizon_start, horizon_end)
         
         new_start, new_end = find_feasible_slot(duration_td, requested_start, free_windows)
+        
+        blockers = get_blocking_activities(requested_start, duration_td, occupied)
+        conflict_ids = [b["id"] for b in blockers]
         
         if new_start and new_end:
             req["start_time"] = new_start.isoformat()
@@ -97,20 +107,47 @@ def run_optimization(trains, maintenance, horizon_start_str, horizon_end_str):
             
             if shift_mins > 0:
                 total_shift_minutes += shift_mins
-                req["reason"] = f"Shifted by {shift_mins}m to enforce safety buffer and resolve overlap."
+                req["reason"] = f"Shifted by {shift_mins}m to avoid {len(blockers)} conflict(s)."
+                req["decision_explanation"] = {
+                    "decision": f"Move maintenance from {requested_start.strftime('%H:%M')} to {new_start.strftime('%H:%M')}.",
+                    "reason": f"Requested slot overlaps with {len(blockers)} active operation(s).",
+                    "constraint": f"Maintenance cannot overlap train occupancy (Buffer: {SAFETY_BUFFER_MINUTES}m) or higher priority blocks.",
+                    "conflict_ids": conflict_ids,
+                    "affected_section": sec,
+                    "original_start": req["original_start"],
+                    "original_end": req["original_end"],
+                    "optimized_start": req["start_time"],
+                    "optimized_end": req["end_time"],
+                    "shift_duration": shift_mins,
+                    "impact": f"Train conflict avoided. Maintenance safely shifted by {shift_mins} minutes."
+                }
             else:
                 req["reason"] = "Scheduled successfully without shifting."
+                req["decision_explanation"] = None
             
             scheduled_requests.append(req)
             
             if sec not in section_occupancy:
                 section_occupancy[sec] = []
-            section_occupancy[sec].append((new_start, new_end))
+            section_occupancy[sec].append((new_start, new_end, req.get("request_id"), "Maintenance"))
         else:
             req["status"] = "Unscheduled"
             req["shifted"] = False
             req["shift_duration"] = 0
             req["reason"] = f"No feasible {duration_mins}m window available on {sec}."
+            req["decision_explanation"] = {
+                "decision": "Reject maintenance block.",
+                "reason": f"No feasible continuous window of {duration_mins}m found on {sec} within horizon.",
+                "constraint": "Cannot interrupt scheduled trains or safety-critical blocks.",
+                "conflict_ids": conflict_ids,
+                "affected_section": sec,
+                "original_start": req["original_start"],
+                "original_end": req["original_end"],
+                "optimized_start": None,
+                "optimized_end": None,
+                "shift_duration": None,
+                "impact": "Block remains unscheduled. Requires manual operational review."
+            }
             unscheduled_requests.append(req)
             
     after_conflicts = detect_conflicts(trains, scheduled_requests)["summary_counts"]

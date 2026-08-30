@@ -9,6 +9,7 @@ import DataTable from '../components/DataTable';
 import EmergencyForm from '../components/EmergencyForm';
 import AnalyticsView from '../components/AnalyticsView';
 import DemoWizard from '../components/DemoWizard';
+import DecisionCard from '../components/DecisionCard';
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -209,6 +210,26 @@ export default function Dashboard() {
                   columns={[...maintCols, { header: "Optimized Start", accessor: "start_time", render: (v: string) => <span className="text-emerald-400 font-mono">{v ? new Date(v).toLocaleString() : 'N/A'}</span> }]} 
                   data={optData?.scheduled_requests || []} 
                 />
+                
+                {((optData?.scheduled_requests || []).some((r: any) => r.decision_explanation) || (optData?.unscheduled_requests || []).some((r: any) => r.decision_explanation)) && (
+                    <div className="mt-8">
+                        <h3 className="text-xl font-bold text-white mb-4">AI Decision Traces</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            {(optData?.scheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                                <DecisionCard key={`sched-${i}`} req={req} />
+                            ))}
+                            {(optData?.unscheduled_requests || []).filter((r: any) => r.decision_explanation).map((req: any, i: number) => (
+                                <DecisionCard key={`unsched-${i}`} req={req} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+                
+                <div className="bg-slate-800 p-4 rounded text-center border border-slate-700 mt-6">
+                    <p className="text-slate-400">
+                        RailOptima evaluated <span className="text-white font-bold">{optData?.summary_metrics?.total_maintenance_requests || 0}</span> maintenance requests and resolved <span className="text-emerald-400 font-bold">{optData?.summary_metrics?.conflicts_resolved || 0}</span> scheduling conflicts while preserving <span className="text-blue-400 font-bold">{optData?.summary_metrics?.critical_maintenance_completed || 0}</span> critical maintenance tasks.
+                    </p>
+                </div>
               </>
             )}
           </div>
