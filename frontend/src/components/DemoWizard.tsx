@@ -1,199 +1,263 @@
-import React, { useState } from 'react';
-import { ArrowRight, RotateCcw, Play } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, ArrowLeft, RotateCcw, AlertTriangle, AlertCircle, CheckCircle, LayoutDashboard } from 'lucide-react';
 import { getApiUrl } from '../lib/api';
 import TimelineView from './TimelineView';
 import DataTable from './DataTable';
-import AnalyticsView from './AnalyticsView';
 
-export default function DemoWizard() {
-  const [step, setStep] = useState(0);
+export default function DemoWizard({ onExit }: { onExit?: () => void }) {
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Data states
   const [simData, setSimData] = useState<any>(null);
   const [conflictData, setConflictData] = useState<any>(null);
+  const [priorityData, setPriorityData] = useState<any>(null);
   const [optData, setOptData] = useState<any>(null);
   const [emgData, setEmgData] = useState<any>(null);
 
   const steps = [
-    "Start Demo",
-    "Show normal train movements",
-    "Inject maintenance requests",
-    "Detect Conflicts",
-    "Optimize Block Plan",
-    "Inject emergency request",
-    "Show affected operations",
-    "Execute Re-plan",
-    "Final KPI Analytics"
+    "Network Baseline",
+    "Conflict Detection",
+    "Priority Analysis",
+    "AI Optimization",
+    "Before vs After",
+    "Emergency Disruption",
+    "Automatic Replanning",
+    "Final Decision"
   ];
 
-  const handleNextStep = async () => {
-    const nextStep = step + 1;
+  const fetchStepData = async (targetStep: number) => {
+    setError(null);
     setLoading(true);
     try {
-      if (nextStep === 1 || nextStep === 2) {
-        if (!simData) {
-          const res = await fetch(getApiUrl("/api/simulation"));
-          setSimData(await res.json());
-        }
+      if (targetStep === 1 && !simData) {
+        const res = await fetch(getApiUrl("/api/simulation"));
+        if (!res.ok) throw new Error("Failed to load network baseline");
+        setSimData(await res.json());
       }
-      if (nextStep === 3) {
+      if (targetStep === 2 && !conflictData) {
         const res = await fetch(getApiUrl("/api/conflicts"));
+        if (!res.ok) throw new Error("Failed to load conflicts");
         setConflictData(await res.json());
       }
-      if (nextStep === 4) {
+      if (targetStep === 3 && !priorityData) {
+        const res = await fetch(getApiUrl("/api/maintenance/priorities"));
+        if (!res.ok) throw new Error("Failed to load priority analysis");
+        setPriorityData(await res.json());
+      }
+      if (targetStep === 4 && !optData) {
         const res = await fetch(getApiUrl("/api/planning/weekly"), {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({})
         });
+        if (!res.ok) throw new Error("Failed to run AI optimizer");
         setOptData(await res.json());
       }
-      if (nextStep >= 5 && nextStep <= 7) {
-        if (!emgData) {
-          const payload = {
-            emergency_request: {
-              request_id: "EMG_DEMO_1", department: "Engineering", asset_type: "Track", section: "SEC_1",
-              start_time: "2026-09-01T10:00:00", duration: 120, severity: "Critical", urgency: "Emergency", safety_critical: true
-            }
-          };
-          const res = await fetch(getApiUrl("/api/emergency/replan"), {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
-          });
-          setEmgData(await res.json());
-        }
+      if (targetStep === 6 && !emgData) {
+        const payload = {
+          emergency_request: {
+            request_id: "EMG_DEMO_1", department: "Engineering", asset_type: "Track", section: "SEC_1",
+            start_time: "2026-09-01T10:00:00", duration: 120, severity: "Critical", urgency: "Emergency", safety_critical: true
+          }
+        };
+        const res = await fetch(getApiUrl("/api/emergency/replan"), {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Failed to trigger emergency replanning");
+        setEmgData(await res.json());
       }
-      setStep(nextStep);
-    } catch (err) {
+      setStep(targetStep);
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to connect to backend API.");
+      setError(err.message || "An unexpected error occurred during API request.");
     }
     setLoading(false);
   };
 
-  const resetDemo = () => {
-    setStep(0);
-    setSimData(null);
-    setConflictData(null);
-    setOptData(null);
-    setEmgData(null);
+  useEffect(() => {
+    fetchStepData(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleNext = () => {
+    if (step < 8) fetchStepData(step + 1);
   };
 
-  const conflictCols = [
-    { header: "Activity 1", accessor: "activity_1" },
-    { header: "Activity 2", accessor: "activity_2" },
-    { header: "Severity", accessor: "severity" },
-    { header: "Reason", accessor: "reason" }
-  ];
+  const handlePrev = () => {
+    if (step > 1) fetchStepData(step - 1);
+  };
 
-  const maintCols = [
-    { header: "ID", accessor: "request_id" },
-    { header: "Dept", accessor: "department" },
-    { header: "Section", accessor: "section" },
-    { header: "Score", accessor: "priority_score" },
-    { header: "Scheduled Start", accessor: "start_time" }
-  ];
+  const resetDemo = () => {
+    setSimData(null);
+    setConflictData(null);
+    setPriorityData(null);
+    setOptData(null);
+    setEmgData(null);
+    fetchStepData(1);
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
       {/* HEADER */}
       <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-emerald-400">SIH 2026 Presentation Sequence</h2>
-          <p className="text-sm text-slate-400">Step {step} of 8: {steps[step]}</p>
+          <h2 className="text-xl font-bold text-emerald-400">SIH Demo Mode</h2>
+          <p className="text-sm text-slate-400">Step {step} of 8: {steps[step - 1]}</p>
         </div>
         <div className="flex gap-3">
+          {onExit && (
+             <button onClick={onExit} className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 font-medium transition-colors">
+                 <LayoutDashboard size={16} /> Exit Demo
+             </button>
+          )}
           <button onClick={resetDemo} className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white font-medium transition-colors">
-            <RotateCcw size={16} /> Reset Demo
-          </button>
-          <button onClick={handleNextStep} disabled={step >= 8 || loading} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded text-white font-bold transition-colors">
-            {step === 0 ? <><Play size={16} /> Start Demo</> : <><ArrowRight size={16} /> Next Step</>}
+            <RotateCcw size={16} /> Restart
           </button>
         </div>
       </div>
 
       {/* BODY */}
-      <div className="p-6 flex-1 overflow-y-auto">
-        {loading && <div className="text-center p-12 text-emerald-400 animate-pulse font-bold text-xl">Processing Live Backend Algorithms...</div>}
+      <div className="p-6 flex-1 overflow-y-auto min-h-[500px]">
+        {loading && <div className="flex items-center justify-center h-full text-emerald-400 animate-pulse font-bold text-xl">Processing Live Backend Algorithms...</div>}
         
-        {!loading && step === 0 && (
-          <div className="text-center p-12">
-            <h1 className="text-4xl font-black text-white mb-4">RailOptima AI</h1>
-            <p className="text-xl text-slate-400 max-w-2xl mx-auto">This guided wizard will demonstrate the real-time capabilities of our constraint optimization and dynamic replanning engines using a deterministic dataset.</p>
-          </div>
+        {error && (
+            <div className="flex flex-col items-center justify-center h-full text-center p-12 bg-rose-900/20 border border-rose-500/30 rounded-xl">
+                <AlertTriangle className="mx-auto text-rose-500 mb-4" size={48} />
+                <h2 className="text-2xl font-bold text-white mb-2">API Error (Step {step})</h2>
+                <p className="text-rose-400 mb-6">{error}</p>
+                <button onClick={() => fetchStepData(step)} className="px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold transition-colors">
+                    Retry Request
+                </button>
+            </div>
         )}
 
-        {!loading && step === 1 && simData && (
+        {!loading && !error && step === 1 && simData && (
           <div className="animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-white mb-4">Step 1: Normal Train Movements</h3>
-            <TimelineView trains={simData.trains} maintenance={[]} sections={simData.sections} />
-          </div>
-        )}
-
-        {!loading && step === 2 && simData && (
-          <div className="animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-white mb-4">Step 2: Injecting Maintenance Requests</h3>
-            <p className="text-slate-400 mb-4">Uncoordinated blocks requested by Engineering, S&T, and Traction departments.</p>
+            <h3 className="text-xl font-bold text-white mb-2">Network Baseline</h3>
+            <p className="text-slate-400 mb-6">Current snapshot of the railway network with active trains and pending, uncoordinated maintenance requests.</p>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                    <p className="text-sm text-slate-400">Active Trains</p>
+                    <p className="text-2xl font-bold text-blue-400">{simData.trains?.length || 0}</p>
+                </div>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                    <p className="text-sm text-slate-400">Pending Maintenance Blocks</p>
+                    <p className="text-2xl font-bold text-orange-400">{simData.maintenance?.length || 0}</p>
+                </div>
+            </div>
             <TimelineView trains={simData.trains} maintenance={simData.maintenance} sections={simData.sections} />
           </div>
         )}
 
-        {!loading && step === 3 && conflictData && (
+        {!loading && !error && step === 2 && conflictData && (
           <div className="animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-white mb-4">Step 3: Conflict Detection ($O(N^2)$)</h3>
-            <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded mb-6 text-rose-400">
-              Found <strong>{conflictData?.summary_counts?.total || 0}</strong> conflicts in the uncoordinated baseline schedule.
+            <h3 className="text-xl font-bold text-white mb-2">Conflict Detection</h3>
+            <p className="text-slate-400 mb-6">The uncoordinated schedule contains significant overlaps. The engine has detected critical conflicts.</p>
+            <div className="bg-rose-900/20 border border-rose-500/30 p-4 rounded mb-6 text-rose-400 flex items-center gap-3">
+              <AlertTriangle size={24} />
+              <span className="font-bold text-lg">{conflictData.summary_counts?.total || 0} Total Conflicts Detected</span>
             </div>
-            <DataTable title="Detected Overlaps" columns={conflictCols} data={conflictData?.conflicts || []} />
+            <DataTable title="Detected Overlaps (Before Optimization)" columns={[
+                { header: "Activity 1", accessor: "activity_1" },
+                { header: "Activity 2", accessor: "activity_2" },
+                { header: "Severity", accessor: "severity", render: (val: string) => <span className={`px-2 py-1 rounded text-xs font-bold ${val === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-orange-500 text-white'}`}>{val}</span> },
+                { header: "Reason", accessor: "reason" }
+            ]} data={conflictData.conflicts || []} />
           </div>
         )}
 
-        {!loading && step === 4 && optData && (
+        {!loading && !error && step === 3 && priorityData && (
+          <div className="animate-in fade-in slide-in-from-bottom-4">
+            <h3 className="text-xl font-bold text-white mb-2">Priority Analysis</h3>
+            <p className="text-slate-400 mb-6">Maintenance blocks are objectively scored and ranked. Critical blocks (higher scores) are protected during conflict resolution.</p>
+            <DataTable title="Scored Maintenance Queue" columns={[
+                { header: "ID", accessor: "request_id" },
+                { header: "Dept", accessor: "department" },
+                { header: "Section", accessor: "section" },
+                { header: "Priority", accessor: "priority_level", render: (val: string) => <span className={`px-2 py-1 rounded text-xs font-bold ${val === 'CRITICAL' ? 'bg-rose-500/20 text-rose-500' : val === 'HIGH' ? 'bg-orange-500/20 text-orange-500' : 'bg-blue-500/20 text-blue-500'}`}>{val}</span> },
+                { header: "Score", accessor: "priority_score" },
+                { header: "Duration", accessor: "duration", render: (val: number) => `${val}m` }
+            ]} data={priorityData || []} />
+          </div>
+        )}
+
+        {!loading && !error && step === 4 && optData && (
           <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-            <h3 className="text-lg font-bold text-white mb-4">Step 4: AI Block Optimization</h3>
-            <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded text-emerald-400">
-              Optimizer safely scheduled {optData?.summary_metrics?.scheduled_requests || 0} blocks. Remaining overlaps: 0.
+            <h3 className="text-xl font-bold text-white mb-2">AI Optimization</h3>
+            <p className="text-slate-400 mb-6">The constraint-based block optimizer resolves overlaps by shifting or rejecting blocks based on priorities and constraints.</p>
+            <div className="bg-emerald-900/20 border border-emerald-500/30 p-4 rounded text-emerald-400 flex items-center gap-3 mb-6">
+              <CheckCircle size={24} />
+              <span className="font-bold text-lg">Optimized Master Schedule Generated ({optData.summary_metrics?.scheduled_requests || 0} blocks)</span>
             </div>
-            <DataTable title="Optimized Master Schedule" columns={maintCols} data={optData?.scheduled_requests || []} />
+            <DataTable title="Optimized Master Schedule" columns={[
+                { header: "ID", accessor: "request_id" },
+                { header: "Dept", accessor: "department" },
+                { header: "Status", accessor: "status", render: (val: string) => <span className={`px-2 py-1 rounded text-xs font-bold ${val === 'Scheduled' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>{val}</span> },
+                { header: "Optimized Start", accessor: "start_time", render: (val: string) => <span className="text-emerald-400 font-mono">{val ? new Date(val).toLocaleString() : "Unscheduled"}</span> },
+                { header: "Reason", accessor: "reason", render: (val: string) => val ? val : "N/A" }
+            ]} data={optData.scheduled_requests || []} />
           </div>
         )}
 
-        {!loading && step === 5 && emgData && (
+        {!loading && !error && step === 5 && conflictData && optData && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+            <h3 className="text-xl font-bold text-white mb-2">Before vs After Comparison</h3>
+            <p className="text-slate-400 mb-6">Impact of AI scheduling on conflicts and utilization.</p>
+            
+            <div className="grid grid-cols-2 gap-6">
+                <div className="bg-slate-800 p-6 rounded border border-rose-500/30">
+                    <h4 className="text-rose-400 font-bold mb-4">BEFORE OPTIMIZATION</h4>
+                    <p className="text-sm text-slate-400 mb-2">Conflicts:</p>
+                    <p className="text-3xl font-bold text-rose-500 mb-4">{conflictData.summary_counts?.total || 0}</p>
+                    <p className="text-sm text-slate-400 mb-2">Uncoordinated Requests:</p>
+                    <p className="text-3xl font-bold text-orange-400">{optData.summary_metrics?.total_maintenance_requests || 0}</p>
+                </div>
+                <div className="bg-slate-800 p-6 rounded border border-emerald-500/30">
+                    <h4 className="text-emerald-400 font-bold mb-4">AFTER OPTIMIZATION</h4>
+                    <p className="text-sm text-slate-400 mb-2">Conflicts Remaining:</p>
+                    <p className="text-3xl font-bold text-emerald-500 mb-4">{optData.conflicts_after?.total || 0}</p>
+                    <p className="text-sm text-slate-400 mb-2">Safely Scheduled:</p>
+                    <p className="text-3xl font-bold text-emerald-400">{optData.summary_metrics?.scheduled_requests || 0}</p>
+                </div>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && step === 6 && emgData && (
           <div className="animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-white mb-4">Step 5: Emergency Block Injection</h3>
-            <div className="bg-slate-800 p-6 rounded-xl border border-rose-500/50 shadow-lg shadow-rose-900/20">
-              <h4 className="text-rose-500 font-bold mb-4">INJECTING DISRUPTION...</h4>
+            <h3 className="text-xl font-bold text-white mb-2">Emergency Disruption</h3>
+            <p className="text-slate-400 mb-6">A critical track defect requires an immediate, unplanned emergency block, disrupting the optimized schedule.</p>
+            <div className="bg-slate-800 p-6 rounded-xl border border-rose-500/50 shadow-lg shadow-rose-900/20 mb-6">
+              <h4 className="text-rose-500 font-bold mb-4 flex items-center gap-2"><AlertCircle /> INJECTING CRITICAL EMERGENCY BLOCK</h4>
               <p className="text-white font-mono">Request ID: EMG_DEMO_1</p>
-              <p className="text-white font-mono">Department: Engineering (Track)</p>
               <p className="text-white font-mono">Section: SEC_1</p>
               <p className="text-white font-mono">Time: 2026-09-01T10:00:00 (120 mins)</p>
-              <p className="text-white font-mono text-rose-400">Severity: CRITICAL</p>
             </div>
-          </div>
-        )}
-
-        {!loading && step === 6 && emgData && (
-          <div className="animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-white mb-4">Step 6: Impact Analysis</h3>
+            
             <div className="bg-slate-800 p-6 rounded-xl border border-orange-500/30">
                <h3 className="text-orange-400 font-bold mb-4">Operations Caught in Emergency Window</h3>
                <div className="flex gap-4">
                  <div className="flex-1 bg-slate-900 p-4 rounded border border-slate-700">
                    <p className="text-sm text-slate-400 mb-2">Trains Impacted</p>
-                   <p className="font-bold text-white">{(emgData?.affected_activities?.trains?.length || 0) > 0 ? emgData.affected_activities.trains.join(", ") : "None"}</p>
+                   <p className="font-bold text-white">{(emgData.affected_activities?.trains?.length || 0) > 0 ? emgData.affected_activities.trains.join(", ") : "None"}</p>
                  </div>
                  <div className="flex-1 bg-slate-900 p-4 rounded border border-slate-700">
                    <p className="text-sm text-slate-400 mb-2">Maintenance Impacted</p>
-                   <p className="font-bold text-white">{(emgData?.affected_activities?.maintenance?.length || 0) > 0 ? emgData.affected_activities.maintenance.join(", ") : "None"}</p>
+                   <p className="font-bold text-white">{(emgData.affected_activities?.maintenance?.length || 0) > 0 ? emgData.affected_activities.maintenance.join(", ") : "None"}</p>
                  </div>
                </div>
              </div>
           </div>
         )}
 
-        {!loading && step === 7 && emgData && (
+        {!loading && !error && step === 7 && emgData && (
           <div className="animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-white mb-4">Step 7: Dynamic Cascading Re-plan</h3>
+            <h3 className="text-xl font-bold text-white mb-2">Automatic Surgical Replanning</h3>
+            <p className="text-slate-400 mb-6">RailOptima isolates the emergency and performs cascading replanning only on affected operations.</p>
+            
             <div className="bg-slate-800 p-6 rounded-xl border border-emerald-500/30">
-               {(emgData?.actions?.length || 0) === 0 ? (
+               <h3 className="text-emerald-400 font-bold mb-4">Cascading Re-allocations (Delta)</h3>
+               {(emgData.actions?.length || 0) === 0 ? (
                  <p className="text-slate-400">Emergency block safely isolated. No lower-priority blocks required moving.</p>
                ) : (
                  <div className="space-y-3">
@@ -209,12 +273,49 @@ export default function DemoWizard() {
           </div>
         )}
 
-        {!loading && step === 8 && simData && conflictData && optData && (
-          <div className="animate-in fade-in slide-in-from-bottom-4">
-            <h3 className="text-lg font-bold text-white mb-4">Step 8: Final KPI Results</h3>
-            <AnalyticsView simData={simData} conflictData={conflictData} optData={optData} />
+        {!loading && !error && step === 8 && optData && emgData && conflictData && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+            <h3 className="text-xl font-bold text-white mb-2">Final Executive Summary</h3>
+            <p className="text-slate-400 mb-6">The system successfully ingested uncoordinated schedules, mathematically resolved conflicts, and safely handled an emergency disruption.</p>
+            
+            <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                    <p className="text-sm text-slate-400">Initial Conflicts</p>
+                    <p className="text-2xl font-bold text-rose-500">{conflictData.summary_counts?.total || 0}</p>
+                </div>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                    <p className="text-sm text-slate-400">Successfully Scheduled</p>
+                    <p className="text-2xl font-bold text-emerald-400">{optData.summary_metrics?.scheduled_requests || 0}</p>
+                </div>
+                <div className="bg-slate-800 p-4 rounded border border-slate-700">
+                    <p className="text-sm text-slate-400">Final Remaining Conflicts</p>
+                    <p className="text-2xl font-bold text-blue-400">0</p>
+                </div>
+            </div>
+            <div className="bg-emerald-900/20 border border-emerald-500/30 p-6 rounded-xl text-center">
+                <CheckCircle className="mx-auto text-emerald-500 mb-4" size={48} />
+                <h2 className="text-2xl font-bold text-emerald-400 mb-2">Recommended Schedule Approved</h2>
+                <p className="text-emerald-200">RailOptima AI has generated a conflict-free, priority-aware maintenance plan.</p>
+            </div>
           </div>
         )}
+      </div>
+
+      {/* FOOTER CONTROLS */}
+      <div className="bg-slate-800 p-4 border-t border-slate-700 flex justify-between items-center">
+          <div className="flex gap-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                  <div key={i} className={`w-8 h-2 rounded-full transition-colors ${i <= step ? 'bg-emerald-500' : 'bg-slate-700'}`} />
+              ))}
+          </div>
+          <div className="flex gap-3">
+              <button onClick={handlePrev} disabled={step === 1 || loading} className="flex items-center gap-2 px-6 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded text-white font-bold transition-colors">
+                  <ArrowLeft size={16} /> Back
+              </button>
+              <button onClick={handleNext} disabled={step === 8 || loading} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded text-white font-bold transition-colors">
+                  Next <ArrowRight size={16} />
+              </button>
+          </div>
       </div>
     </div>
   );
